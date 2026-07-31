@@ -36,6 +36,9 @@ function describeAuthError(error: { message?: string }): string {
   if (/invalid api key|api key/i.test(message)) {
     return 'מפתח ה-API לא תקין. בדקו את VITE_SUPABASE_ANON_KEY.';
   }
+  if (/row-level security|violates row-level/i.test(message)) {
+    return 'הרשאות מסד הנתונים חוסמות את הפעולה. הריצו מחדש את קובץ ה-SQL (schema.sql) ב-Supabase.';
+  }
 
   return message || 'ההתחברות נכשלה';
 }

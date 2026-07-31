@@ -4,7 +4,11 @@ import type { Conversation, ConversationType, Message, Session } from '../types'
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
 function mapError(error: { message?: string } | null, fallback: string) {
-  return error?.message || fallback;
+  const message = error?.message ?? '';
+  if (/row-level security|violates row-level/i.test(message)) {
+    return 'הרשאות מסד הנתונים חוסמות את הפעולה. הריצו מחדש את schema.sql ב-Supabase → SQL Editor.';
+  }
+  return message || fallback;
 }
 
 function mapMessage(row: {
