@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Mail } from 'lucide-react';
+import { Eye, EyeOff, Mail } from 'lucide-react';
 import type { ActionResult } from '../types';
 
 type AuthView = 'login' | 'register';
@@ -18,6 +18,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -119,15 +120,26 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
 
           <div className="field">
             <label htmlFor="password">סיסמה</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete={view === 'login' ? 'current-password' : 'new-password'}
-              required
-            />
+            <div className="password-field">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                autoComplete={view === 'login' ? 'current-password' : 'new-password'}
+                required
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+                title={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {error && <div className="auth-error">{error}</div>}
