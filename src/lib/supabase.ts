@@ -1,11 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Project URL is public; hardcoded to avoid stale env / Vercel misconfig.
+const supabaseUrl = 'https://znifjljszxlvoqgvgoad.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseAnonKey) {
   throw new Error(
-    'חסרים משתני סביבה: הגדירו VITE_SUPABASE_URL ו-VITE_SUPABASE_ANON_KEY ב-.env.local',
+    'חסר VITE_SUPABASE_ANON_KEY — הגדירו אותו ב-.env.local וב-Vercel',
   );
 }
 
@@ -16,3 +17,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
   },
 });
+
+export { supabaseUrl };

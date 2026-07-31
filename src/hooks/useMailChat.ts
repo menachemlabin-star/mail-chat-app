@@ -10,13 +10,13 @@ import {
   loadMessages,
   mapMessage,
 } from '../lib/api';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseUrl } from '../lib/supabase';
 
 function describeAuthError(error: { message?: string }): string {
   const message = error.message ?? '';
 
   if (/failed to fetch|network|load failed/i.test(message)) {
-    return `אין חיבור לשרת. הדפדפן מנסה לפנות אל: ${import.meta.env.VITE_SUPABASE_URL}`;
+    return `אין חיבור לשרת. הדפדפן מנסה לפנות אל: ${supabaseUrl}`;
   }
   if (/invalid login credentials/i.test(message)) {
     return 'מייל או סיסמה שגויים';
