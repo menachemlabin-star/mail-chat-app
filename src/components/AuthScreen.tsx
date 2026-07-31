@@ -64,11 +64,8 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           <div className="brand-mark" aria-hidden>
             <Mail size={22} />
           </div>
-          <h1 className="brand-name">MailChat</h1>
+          <h1 className="brand-name">Chat</h1>
         </div>
-        <p className="auth-tagline">
-          שיחות פרטיות וקבוצתיות לפי כתובת מייל — במהירות של צ׳אט, בפשטות של מייל.
-        </p>
 
         <div className="mode-toggle" role="tablist" aria-label="התחברות או הרשמה">
           <button
