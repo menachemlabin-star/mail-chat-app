@@ -8,7 +8,7 @@ import {
   Users,
   UsersRound,
 } from 'lucide-react';
-import type { Conversation, ConversationType, Message, Session } from '../types';
+import type { ActionResult, Conversation, ConversationType, Message, Session } from '../types';
 import { NewChatModal, NewGroupModal } from './Modals';
 
 interface ConversationRow extends Conversation {
@@ -26,13 +26,12 @@ interface DashboardProps {
   activeMessages: Message[];
   onlineEmails: Set<string>;
   peerEmail: string | null;
-  onLogout: () => void;
-  onStartPrivate: (email: string) => { ok: true } | { ok: false; error: string };
-  onCreateGroup: (
-    name: string,
-    emails: string[],
-  ) => { ok: true } | { ok: false; error: string };
-  onSend: (text: string) => void;
+  dataLoading?: boolean;
+  error?: string | null;
+  onLogout: () => void | Promise<void>;
+  onStartPrivate: (email: string) => Promise<ActionResult>;
+  onCreateGroup: (name: string, emails: string[]) => Promise<ActionResult>;
+  onSend: (text: string) => void | Promise<void>;
 }
 
 function initials(name: string) {
@@ -66,6 +65,8 @@ export function Dashboard({
   activeMessages,
   onlineEmails,
   peerEmail,
+  dataLoading,
+  error,
   onLogout,
   onStartPrivate,
   onCreateGroup,
@@ -161,7 +162,16 @@ export function Dashboard({
         )}
 
         <ul className="conversation-list">
-          {conversations.length === 0 ? (
+          {error && (
+            <li className="empty-list">
+              <p style={{ color: 'var(--danger)' }}>{error}</p>
+            </li>
+          )}
+          {dataLoading && conversations.length === 0 ? (
+            <li className="empty-list">
+              <p>טוען שיחות מ-Supabase…</p>
+            </li>
+          ) : conversations.length === 0 ? (
             <li className="empty-list">
               {tab === 'private' ? <Mail size={28} /> : <Users size={28} />}
               <p>

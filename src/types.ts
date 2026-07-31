@@ -1,11 +1,5 @@
 export type ConversationType = 'private' | 'group';
 
-export interface User {
-  email: string;
-  displayName: string;
-  password: string;
-}
-
 export interface Message {
   id: string;
   conversationId: string;
@@ -24,6 +18,9 @@ export interface Conversation {
 }
 
 export interface Session {
+  id: string;
   email: string;
   displayName: string;
 }
+
+export type ActionResult = { ok: true } | { ok: false; error: string };

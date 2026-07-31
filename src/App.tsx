@@ -5,13 +5,25 @@ import { useMailChat } from './hooks/useMailChat';
 export default function App() {
   const chat = useMailChat();
 
+  if (chat.authLoading) {
+    return (
+      <div className="app-shell auth-page">
+        <div className="auth-card" style={{ textAlign: 'center' }}>
+          <div className="brand" style={{ justifyContent: 'center' }}>
+            <h1 className="brand-name">MailChat</h1>
+          </div>
+          <p className="auth-tagline">מתחבר ל-Supabase…</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!chat.session) {
     return (
       <div className="app-shell">
         <AuthScreen
           onLogin={chat.login}
           onRegister={chat.register}
-          onMagicLink={chat.magicLink}
         />
       </div>
     );
@@ -30,6 +42,8 @@ export default function App() {
         activeMessages={chat.activeMessages}
         onlineEmails={chat.onlineEmails}
         peerEmail={chat.peerEmail}
+        dataLoading={chat.dataLoading}
+        error={chat.error}
         onLogout={chat.logout}
         onStartPrivate={chat.startPrivateChat}
         onCreateGroup={chat.createGroup}

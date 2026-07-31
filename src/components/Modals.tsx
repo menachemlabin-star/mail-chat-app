@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import type { ActionResult } from '../types';
 
 interface ModalProps {
   title: string;
@@ -35,18 +36,25 @@ function ModalShell({ title, subtitle, onClose, children }: ModalProps) {
 
 interface NewChatModalProps {
   onClose: () => void;
-  onSubmit: (email: string) => { ok: true } | { ok: false; error: string };
+  onSubmit: (email: string) => Promise<ActionResult>;
 }
 
 export function NewChatModal({ onClose, onSubmit }: NewChatModalProps) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handle = (e: FormEvent) => {
+  const handle = async (e: FormEvent) => {
     e.preventDefault();
-    const result = onSubmit(email);
-    if (!result.ok) setError(result.error);
-    else onClose();
+    setBusy(true);
+    setError('');
+    try {
+      const result = await onSubmit(email);
+      if (!result.ok) setError(result.error);
+      else onClose();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -70,11 +78,11 @@ export function NewChatModal({ onClose, onSubmit }: NewChatModalProps) {
         </div>
         {error && <div className="auth-error">{error}</div>}
         <div className="modal-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
             ביטול
           </button>
-          <button type="submit" className="btn btn-primary">
-            פתיחת שיחה
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? 'יוצר…' : 'פתיחת שיחה'}
           </button>
         </div>
       </form>
@@ -84,26 +92,30 @@ export function NewChatModal({ onClose, onSubmit }: NewChatModalProps) {
 
 interface NewGroupModalProps {
   onClose: () => void;
-  onSubmit: (
-    name: string,
-    emails: string[],
-  ) => { ok: true } | { ok: false; error: string };
+  onSubmit: (name: string, emails: string[]) => Promise<ActionResult>;
 }
 
 export function NewGroupModal({ onClose, onSubmit }: NewGroupModalProps) {
   const [name, setName] = useState('');
   const [emails, setEmails] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handle = (e: FormEvent) => {
+  const handle = async (e: FormEvent) => {
     e.preventDefault();
-    const list = emails
-      .split(/[,;\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const result = onSubmit(name, list);
-    if (!result.ok) setError(result.error);
-    else onClose();
+    setBusy(true);
+    setError('');
+    try {
+      const list = emails
+        .split(/[,;\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const result = await onSubmit(name, list);
+      if (!result.ok) setError(result.error);
+      else onClose();
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -135,11 +147,11 @@ export function NewGroupModal({ onClose, onSubmit }: NewGroupModalProps) {
         </div>
         {error && <div className="auth-error">{error}</div>}
         <div className="modal-actions">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
             ביטול
           </button>
-          <button type="submit" className="btn btn-primary">
-            יצירת קבוצה
+          <button type="submit" className="btn btn-primary" disabled={busy}>
+            {busy ? 'יוצר…' : 'יצירת קבוצה'}
           </button>
         </div>
       </form>

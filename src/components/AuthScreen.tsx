@@ -1,62 +1,57 @@
 import { useState, type FormEvent } from 'react';
-import { Mail, Sparkles } from 'lucide-react';
+import { Mail } from 'lucide-react';
+import type { ActionResult } from '../types';
 
-type AuthMode = 'password' | 'magic';
 type AuthView = 'login' | 'register';
 
 interface AuthScreenProps {
-  onLogin: (email: string, password: string) => { ok: true } | { ok: false; error: string };
+  onLogin: (email: string, password: string) => Promise<ActionResult>;
   onRegister: (
     email: string,
     password: string,
     displayName: string,
-  ) => { ok: true } | { ok: false; error: string };
-  onMagicLink: (email: string, displayName: string) => { ok: true } | { ok: false; error: string };
+  ) => Promise<ActionResult>;
 }
 
-export function AuthScreen({ onLogin, onRegister, onMagicLink }: AuthScreenProps) {
+export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   const [view, setView] = useState<AuthView>('login');
-  const [mode, setMode] = useState<AuthMode>('password');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
-  const [magicSent, setMagicSent] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    setMagicSent(false);
 
     if (!email.includes('@')) {
       setError('נא להזין כתובת מייל תקינה');
       return;
     }
 
-    if (mode === 'magic') {
-      const result = onMagicLink(email, displayName || email.split('@')[0]);
-      if (!result.ok) setError(result.error);
-      else setMagicSent(true);
-      return;
-    }
-
-    if (password.length < 4) {
-      setError('הסיסמה חייבת להכיל לפחות 4 תווים');
-      return;
-    }
-
-    if (view === 'register') {
-      if (!displayName.trim()) {
-        setError('נא להזין שם תצוגה');
+    setBusy(true);
+    try {
+      if (password.length < 6) {
+        setError('הסיסמה חייבת להכיל לפחות 6 תווים');
         return;
       }
-      const result = onRegister(email, password, displayName);
-      if (!result.ok) setError(result.error);
-      return;
-    }
 
-    const result = onLogin(email, password);
-    if (!result.ok) setError(result.error);
+      if (view === 'register') {
+        if (!displayName.trim()) {
+          setError('נא להזין שם תצוגה');
+          return;
+        }
+        const result = await onRegister(email, password, displayName);
+        if (!result.ok) setError(result.error);
+        return;
+      }
+
+      const result = await onLogin(email, password);
+      if (!result.ok) setError(result.error);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -75,32 +70,31 @@ export function AuthScreen({ onLogin, onRegister, onMagicLink }: AuthScreenProps
           שיחות פרטיות וקבוצתיות לפי כתובת מייל — במהירות של צ׳אט, בפשטות של מייל.
         </p>
 
-        <div className="mode-toggle" role="tablist" aria-label="שיטת התחברות">
+        <div className="mode-toggle" role="tablist" aria-label="התחברות או הרשמה">
           <button
             type="button"
-            className={mode === 'password' ? 'active' : ''}
+            className={view === 'login' ? 'active' : ''}
             onClick={() => {
-              setMode('password');
-              setMagicSent(false);
+              setView('login');
               setError('');
             }}
           >
-            מייל וסיסמה
+            התחברות
           </button>
           <button
             type="button"
-            className={mode === 'magic' ? 'active' : ''}
+            className={view === 'register' ? 'active' : ''}
             onClick={() => {
-              setMode('magic');
+              setView('register');
               setError('');
             }}
           >
-            קישור קסם
+            הרשמה
           </button>
         </div>
 
         <form onSubmit={submit}>
-          {(view === 'register' || mode === 'magic') && (
+          {view === 'register' && (
             <div className="field">
               <label htmlFor="displayName">שם תצוגה</label>
               <input
@@ -126,61 +120,49 @@ export function AuthScreen({ onLogin, onRegister, onMagicLink }: AuthScreenProps
             />
           </div>
 
-          {mode === 'password' && (
-            <div className="field">
-              <label htmlFor="password">סיסמה</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete={view === 'login' ? 'current-password' : 'new-password'}
-                required
-              />
-            </div>
-          )}
+          <div className="field">
+            <label htmlFor="password">סיסמה</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete={view === 'login' ? 'current-password' : 'new-password'}
+              required
+            />
+          </div>
 
           {error && <div className="auth-error">{error}</div>}
-          {magicSent && (
-            <div className="auth-error" style={{ background: 'rgba(15,118,110,.1)', color: 'var(--teal-deep)' }}>
-              קישור הקסם אומת — מתחברים…
-            </div>
-          )}
 
-          <button className="btn btn-primary" type="submit">
-            {mode === 'magic' ? (
-              <>
-                <Sparkles size={18} />
-                שליחת קישור קסם והתחברות
-              </>
-            ) : view === 'login' ? (
-              'התחברות'
+          <button className="btn btn-primary" type="submit" disabled={busy}>
+            {view === 'login' ? (
+              busy ? 'מתחבר…' : 'התחברות'
+            ) : busy ? (
+              'נרשם…'
             ) : (
               'הרשמה'
             )}
           </button>
         </form>
 
-        {mode === 'password' && (
-          <div className="auth-switch">
-            {view === 'login' ? (
-              <>
-                אין חשבון?
-                <button type="button" onClick={() => setView('register')}>
-                  הרשמה
-                </button>
-              </>
-            ) : (
-              <>
-                כבר רשומים?
-                <button type="button" onClick={() => setView('login')}>
-                  התחברות
-                </button>
-              </>
-            )}
-          </div>
-        )}
+        <div className="auth-switch">
+          {view === 'login' ? (
+            <>
+              אין חשבון?
+              <button type="button" onClick={() => setView('register')}>
+                הרשמה
+              </button>
+            </>
+          ) : (
+            <>
+              כבר רשומים?
+              <button type="button" onClick={() => setView('login')}>
+                התחברות
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

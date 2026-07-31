@@ -1,99 +1,225 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Conversation, ConversationType, Message, Session } from '../types';
 import {
-  findUser,
-  getConversations,
-  getMessages,
-  getSession,
-  saveConversations,
-  saveMessages,
-  saveUser,
-  seedDemoData,
-  setSession,
-  uid,
-} from '../storage';
-
-function privateKey(a: string, b: string) {
-  return [a.toLowerCase(), b.toLowerCase()].sort().join('::');
-}
+  createGroupConversation,
+  createPrivateConversation,
+  ensureProfile,
+  findProfileByEmail,
+  insertMessage,
+  loadConversationsForUser,
+  loadMessages,
+  mapMessage,
+} from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 export function useMailChat() {
-  const [session, setSessionState] = useState<Session | null>(() => getSession());
-  const [conversations, setConversations] = useState<Conversation[]>(() => getConversations());
-  const [messages, setMessages] = useState<Message[]>(() => getMessages());
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<ConversationType>('private');
   const [onlineEmails, setOnlineEmails] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshData = useCallback(async (email: string) => {
+    setDataLoading(true);
+    setError(null);
+
+    const convResult = await loadConversationsForUser(email);
+    if (!convResult.ok) {
+      setError(convResult.error);
+      setDataLoading(false);
+      return;
+    }
+
+    setConversations(convResult.data);
+    const msgResult = await loadMessages(convResult.data.map((c) => c.id));
+    if (!msgResult.ok) {
+      setError(msgResult.error);
+      setDataLoading(false);
+      return;
+    }
+
+    setMessages(msgResult.data);
+    setDataLoading(false);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const bootstrap = async () => {
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user;
+      if (!user?.email) {
+        if (mounted) {
+          setSession(null);
+          setAuthLoading(false);
+        }
+        return;
+      }
+
+      const profile = await ensureProfile(
+        user.id,
+        user.email,
+        typeof user.user_metadata?.display_name === 'string'
+          ? user.user_metadata.display_name
+          : undefined,
+      );
+
+      if (!mounted) return;
+      setSession(profile);
+      setAuthLoading(false);
+      await refreshData(profile.email);
+    };
+
+    void bootstrap();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void (async () => {
+        const user = nextSession?.user;
+        if (!user?.email) {
+          setSession(null);
+          setConversations([]);
+          setMessages([]);
+          setActiveId(null);
+          setAuthLoading(false);
+          return;
+        }
+
+        const profile = await ensureProfile(
+          user.id,
+          user.email,
+          typeof user.user_metadata?.display_name === 'string'
+            ? user.user_metadata.display_name
+            : undefined,
+        );
+        setSession(profile);
+        setAuthLoading(false);
+        await refreshData(profile.email);
+      })();
+    });
+
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, [refreshData]);
 
   useEffect(() => {
     if (!session) return;
-    const seeded = seedDemoData(session.email, session.displayName);
-    setConversations(seeded.conversations);
-    setMessages(seeded.messages);
-  }, [session?.email]);
+
+    const channel = supabase
+      .channel(`messages-feed:${session.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_email: string;
+            sender_name: string;
+            body: string;
+            created_at: string;
+          };
+
+          setConversations((prev) => {
+            if (!prev.some((c) => c.id === row.conversation_id)) return prev;
+            setMessages((msgs) => {
+              if (msgs.some((m) => m.id === row.id)) return msgs;
+              return [...msgs, mapMessage(row)];
+            });
+            return prev;
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [session]);
 
   useEffect(() => {
-    const tick = () => {
-      const pool = [
-        'dana@studio.co.il',
-        'yonatan@mailchat.app',
-        'maya@design.io',
-        ...(session ? [session.email] : []),
-      ];
+    if (!session) {
+      setOnlineEmails(new Set());
+      return;
+    }
+
+    const channel = supabase.channel('mailchat-online', {
+      config: { presence: { key: session.email } },
+    });
+
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<{ email?: string }>();
       const next = new Set<string>();
-      pool.forEach((email) => {
-        if (email === session?.email || Math.random() > 0.35) next.add(email);
+      Object.values(state).forEach((presences) => {
+        presences.forEach((p) => {
+          if (p.email) next.add(p.email.toLowerCase());
+        });
       });
       setOnlineEmails(next);
-    };
-    tick();
-    const id = window.setInterval(tick, 8000);
-    return () => window.clearInterval(id);
-  }, [session?.email]);
+    });
 
-  const register = useCallback(
-    (email: string, password: string, displayName: string) => {
-      const normalized = email.trim().toLowerCase();
-      if (findUser(normalized)) {
-        return { ok: false as const, error: 'כתובת המייל כבר רשומה במערכת' };
+    void channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({
+          email: session.email,
+          displayName: session.displayName,
+          online_at: new Date().toISOString(),
+        });
       }
-      saveUser({ email: normalized, password, displayName: displayName.trim() });
-      const next: Session = { email: normalized, displayName: displayName.trim() };
-      setSession(next);
-      setSessionState(next);
-      return { ok: true as const };
-    },
-    [],
-  );
+    });
 
-  const login = useCallback((email: string, password: string) => {
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [session]);
+
+  const register = useCallback(async (email: string, password: string, displayName: string) => {
     const normalized = email.trim().toLowerCase();
-    const user = findUser(normalized);
-    if (!user || user.password !== password) {
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email: normalized,
+      password,
+      options: {
+        data: { display_name: displayName.trim() },
+      },
+    });
+
+    if (signUpError) {
+      return { ok: false as const, error: signUpError.message };
+    }
+
+    if (!data.session) {
+      return {
+        ok: false as const,
+        error: 'נשלח מייל אימות. אשרו את החשבון ואז התחברו.',
+      };
+    }
+
+    return { ok: true as const };
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+
+    if (signInError) {
       return { ok: false as const, error: 'מייל או סיסמה שגויים' };
     }
-    const next: Session = { email: user.email, displayName: user.displayName };
-    setSession(next);
-    setSessionState(next);
+
     return { ok: true as const };
   }, []);
 
-  const magicLink = useCallback((email: string, displayName: string) => {
-    const normalized = email.trim().toLowerCase();
-    const existing = findUser(normalized);
-    const name = displayName.trim() || existing?.displayName || normalized.split('@')[0];
-    if (!existing) {
-      saveUser({ email: normalized, password: uid('magic'), displayName: name });
-    }
-    const next: Session = { email: normalized, displayName: name };
-    setSession(next);
-    setSessionState(next);
-    return { ok: true as const };
-  }, []);
-
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
     setSession(null);
-    setSessionState(null);
+    setConversations([]);
+    setMessages([]);
     setActiveId(null);
   }, []);
 
@@ -105,10 +231,12 @@ export function useMailChat() {
         const convMessages = messages
           .filter((m) => m.conversationId === c.id)
           .sort((a, b) => b.timestamp - a.timestamp);
-        const last = convMessages[0];
-        return { ...c, lastMessage: last ?? null };
+        return { ...c, lastMessage: convMessages[0] ?? null };
       })
-      .sort((a, b) => (b.lastMessage?.timestamp ?? b.createdAt) - (a.lastMessage?.timestamp ?? a.createdAt));
+      .sort(
+        (a, b) =>
+          (b.lastMessage?.timestamp ?? b.createdAt) - (a.lastMessage?.timestamp ?? a.createdAt),
+      );
   }, [conversations, messages, session, tab]);
 
   const activeConversation = useMemo(
@@ -125,87 +253,79 @@ export function useMailChat() {
   );
 
   const startPrivateChat = useCallback(
-    (peerEmail: string) => {
+    async (peerEmail: string) => {
       if (!session) return { ok: false as const, error: 'לא מחובר' };
       const peer = peerEmail.trim().toLowerCase();
       if (!peer.includes('@')) return { ok: false as const, error: 'כתובת מייל לא תקינה' };
       if (peer === session.email) return { ok: false as const, error: 'לא ניתן לפתוח שיחה עם עצמך' };
 
-      const existing = conversations.find(
-        (c) =>
-          c.type === 'private' &&
-          c.members.length === 2 &&
-          privateKey(c.members[0], c.members[1]) === privateKey(session.email, peer),
-      );
+      const known = await findProfileByEmail(peer);
+      const result = await createPrivateConversation({
+        userId: session.id,
+        myEmail: session.email,
+        peerEmail: peer,
+        peerName: known?.display_name ?? peer.split('@')[0],
+      });
 
-      if (existing) {
-        setTab('private');
-        setActiveId(existing.id);
-        return { ok: true as const };
-      }
+      if (!result.ok) return result;
 
-      const known = findUser(peer);
-      const conv: Conversation = {
-        id: uid('conv'),
-        type: 'private',
-        name: known?.displayName ?? peer.split('@')[0],
-        members: [session.email, peer],
-        createdAt: Date.now(),
-      };
-      const next = [...conversations, conv];
-      setConversations(next);
-      saveConversations(next);
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === result.data.id)) return prev;
+        return [...prev, result.data];
+      });
       setTab('private');
-      setActiveId(conv.id);
+      setActiveId(result.data.id);
       return { ok: true as const };
     },
-    [conversations, session],
+    [session],
   );
 
   const createGroup = useCallback(
-    (name: string, memberEmails: string[]) => {
+    async (name: string, memberEmails: string[]) => {
       if (!session) return { ok: false as const, error: 'לא מחובר' };
-      const cleaned = memberEmails
-        .map((e) => e.trim().toLowerCase())
-        .filter((e) => e.includes('@') && e !== session.email);
       if (!name.trim()) return { ok: false as const, error: 'נא להזין שם קבוצה' };
 
-      const conv: Conversation = {
-        id: uid('conv'),
-        type: 'group',
-        name: name.trim(),
-        members: [session.email, ...Array.from(new Set(cleaned))],
-        createdAt: Date.now(),
-      };
-      const next = [...conversations, conv];
-      setConversations(next);
-      saveConversations(next);
+      const result = await createGroupConversation({
+        userId: session.id,
+        myEmail: session.email,
+        name,
+        memberEmails,
+      });
+
+      if (!result.ok) return result;
+
+      setConversations((prev) => [...prev, result.data]);
       setTab('group');
-      setActiveId(conv.id);
+      setActiveId(result.data.id);
       return { ok: true as const };
     },
-    [conversations, session],
+    [session],
   );
 
   const sendMessage = useCallback(
-    (text: string) => {
+    async (text: string) => {
       if (!session || !activeId) return;
       const trimmed = text.trim();
       if (!trimmed) return;
 
-      const msg: Message = {
-        id: uid('msg'),
+      const result = await insertMessage({
         conversationId: activeId,
         senderEmail: session.email,
         senderName: session.displayName,
         text: trimmed,
-        timestamp: Date.now(),
-      };
-      const next = [...messages, msg];
-      setMessages(next);
-      saveMessages(next);
+      });
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === result.data.id)) return prev;
+        return [...prev, result.data];
+      });
     },
-    [session, activeId, messages],
+    [session, activeId],
   );
 
   const peerEmail = useMemo(() => {
@@ -215,6 +335,9 @@ export function useMailChat() {
 
   return {
     session,
+    authLoading,
+    dataLoading,
+    error,
     tab,
     setTab,
     activeId,
@@ -226,7 +349,6 @@ export function useMailChat() {
     peerEmail,
     register,
     login,
-    magicLink,
     logout,
     startPrivateChat,
     createGroup,
