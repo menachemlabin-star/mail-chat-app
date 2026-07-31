@@ -16,7 +16,7 @@ function describeAuthError(error: { message?: string }): string {
   const message = error.message ?? '';
 
   if (/failed to fetch|network|load failed/i.test(message)) {
-    return 'אין חיבור לשרת Supabase. בדקו שכתובת ה-URL ב-.env.local נכונה.';
+    return `אין חיבור לשרת. הדפדפן מנסה לפנות אל: ${import.meta.env.VITE_SUPABASE_URL}`;
   }
   if (/invalid login credentials/i.test(message)) {
     return 'מייל או סיסמה שגויים';
