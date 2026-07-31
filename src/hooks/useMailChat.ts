@@ -12,6 +12,28 @@ import {
 } from '../lib/api';
 import { supabase } from '../lib/supabase';
 
+function describeAuthError(error: { message?: string }): string {
+  const message = error.message ?? '';
+
+  if (/failed to fetch|network|load failed/i.test(message)) {
+    return 'אין חיבור לשרת Supabase. בדקו שכתובת ה-URL ב-.env.local נכונה.';
+  }
+  if (/invalid login credentials/i.test(message)) {
+    return 'מייל או סיסמה שגויים';
+  }
+  if (/email not confirmed/i.test(message)) {
+    return 'המייל לא אומת. בדקו את תיבת הדואר שלכם.';
+  }
+  if (/already registered|already exists/i.test(message)) {
+    return 'כתובת המייל כבר רשומה. עברו להתחברות.';
+  }
+  if (/invalid api key|api key/i.test(message)) {
+    return 'מפתח ה-API לא תקין. בדקו את VITE_SUPABASE_ANON_KEY.';
+  }
+
+  return message || 'ההתחברות נכשלה';
+}
+
 export function useMailChat() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -189,7 +211,7 @@ export function useMailChat() {
     });
 
     if (signUpError) {
-      return { ok: false as const, error: signUpError.message };
+      return { ok: false as const, error: describeAuthError(signUpError) };
     }
 
     if (!data.session) {
@@ -209,7 +231,7 @@ export function useMailChat() {
     });
 
     if (signInError) {
-      return { ok: false as const, error: 'מייל או סיסמה שגויים' };
+      return { ok: false as const, error: describeAuthError(signInError) };
     }
 
     return { ok: true as const };
