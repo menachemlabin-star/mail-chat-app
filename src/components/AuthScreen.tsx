@@ -19,8 +19,16 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordLocked, setPasswordLocked] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const switchView = (next: AuthView) => {
+    setView(next);
+    setError('');
+    setShowPassword(false);
+    setPasswordLocked(true);
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -40,7 +48,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
 
       if (view === 'register') {
         if (!displayName.trim()) {
-          setError('נא להזין שם תצוגה');
+          setError('נא להזין שם ומשפחה');
           return;
         }
         const result = await onRegister(email, password, displayName);
@@ -68,16 +76,37 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           <h1 className="brand-name">צ׳אט כנסת הגדולה</h1>
         </div>
 
-        <form onSubmit={submit}>
+        <form onSubmit={submit} autoComplete="off">
+          {/* Hidden decoys reduce Chrome password-manager interference */}
+          <input
+            type="text"
+            name="fake-username"
+            autoComplete="username"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="autofill-decoy"
+          />
+          <input
+            type="password"
+            name="fake-password"
+            autoComplete="new-password"
+            tabIndex={-1}
+            aria-hidden="true"
+            className="autofill-decoy"
+          />
+
           {view === 'register' && (
             <div className="field">
-              <label htmlFor="displayName">שם תצוגה</label>
+              <label htmlFor="displayName">שם ומשפחה</label>
               <input
                 id="displayName"
+                name="full-name"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="איך לקרוא לך?"
-                autoComplete="nickname"
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+                data-form-type="other"
               />
             </div>
           )}
@@ -86,11 +115,14 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
             <label htmlFor="email">כתובת מייל</label>
             <input
               id="email"
+              name="user-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              autoComplete="email"
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
+              data-form-type="other"
               required
             />
           </div>
@@ -100,11 +132,17 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
             <div className="password-field">
               <input
                 id="password"
+                name="user-secret"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete={view === 'login' ? 'current-password' : 'new-password'}
+                onFocus={() => setPasswordLocked(false)}
+                readOnly={passwordLocked}
+                autoComplete="off"
+                data-1p-ignore
+                data-lpignore="true"
+                data-bwignore="true"
+                data-form-type="other"
                 required
               />
               <button
@@ -136,14 +174,14 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           {view === 'login' ? (
             <>
               אין חשבון?
-              <button type="button" onClick={() => setView('register')}>
+              <button type="button" onClick={() => switchView('register')}>
                 הרשמה
               </button>
             </>
           ) : (
             <>
               כבר רשומים?
-              <button type="button" onClick={() => setView('login')}>
+              <button type="button" onClick={() => switchView('login')}>
                 התחברות
               </button>
             </>

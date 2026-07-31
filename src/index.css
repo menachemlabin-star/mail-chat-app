@@ -240,6 +240,15 @@ button:disabled {
   color: var(--teal-deep);
 }
 
+.autofill-decoy {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .auth-error {
   background: rgba(220, 76, 76, 0.1);
   color: var(--danger);
