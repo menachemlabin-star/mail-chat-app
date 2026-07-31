@@ -595,8 +595,32 @@ button:disabled {
 .conversation-item .time {
   color: var(--muted);
   font-size: 0.72rem;
-  align-self: start;
   margin-top: 3px;
+}
+
+.conversation-meta {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.unread-badge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--teal);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.25);
 }
 
 .empty-list {

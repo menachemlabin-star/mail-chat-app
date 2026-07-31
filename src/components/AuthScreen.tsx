@@ -32,6 +32,7 @@ export function AuthScreen({
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
     if (forceReset) {
@@ -40,6 +41,12 @@ export function AuthScreen({
       setInfo('');
     }
   }, [forceReset]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = window.setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [cooldown]);
 
   const switchView = (next: AuthView) => {
     if (forceReset && next !== 'reset') return;
@@ -63,8 +70,12 @@ export function AuthScreen({
           return;
         }
         const result = await onResetPassword(email);
-        if (!result.ok) setError(result.error);
-        else setInfo('נשלח קישור לאיפוס סיסמה למייל שלכם.');
+        if (!result.ok) {
+          setError(result.error);
+        } else {
+          setInfo('נשלח קישור לאיפוס סיסמה. בדקו גם בתיקיית הספאם.');
+          setCooldown(60);
+        }
         return;
       }
 
@@ -220,11 +231,17 @@ export function AuthScreen({
           {error && <div className="auth-error">{error}</div>}
           {info && <div className="auth-info">{info}</div>}
 
-          <button className="btn btn-primary" type="submit" disabled={busy}>
+          <button
+            className="btn btn-primary"
+            type="submit"
+            disabled={busy || (view === 'forgot' && cooldown > 0)}
+          >
             {view === 'forgot'
               ? busy
                 ? 'שולח…'
-                : 'שליחת קישור לאיפוס'
+                : cooldown > 0
+                  ? `אפשר לשלוח שוב בעוד ${cooldown} שניות`
+                  : 'שליחת קישור לאיפוס'
               : view === 'reset'
                 ? busy
                   ? 'שומר…'

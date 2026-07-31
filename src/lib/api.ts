@@ -118,7 +118,7 @@ export async function loadConversationsForUser(email: string): Promise<Result<Co
 
   const { data: memberships, error: membershipError } = await supabase
     .from('conversation_members')
-    .select('conversation_id')
+    .select('conversation_id, last_read_at')
     .eq('member_email', normalized);
 
   if (membershipError) {
@@ -138,14 +138,46 @@ export async function loadConversationsForUser(email: string): Promise<Result<Co
     return { ok: false, error: mapError(error, 'שגיאה בטעינת שיחות') };
   }
 
+  const memberEmails = Array.from(
+    new Set(
+      (rows ?? []).flatMap((row) => {
+        const membersRaw = row.conversation_members as { member_email: string }[] | null;
+        return (membersRaw ?? []).map((member) => member.member_email.toLowerCase());
+      }),
+    ),
+  );
+
+  const { data: profiles } =
+    memberEmails.length > 0
+      ? await supabase
+          .from('profiles')
+          .select('email, display_name')
+          .in('email', memberEmails)
+      : { data: [] };
+
+  const namesByEmail = new Map(
+    (profiles ?? []).map((profile) => [profile.email.toLowerCase(), profile.display_name]),
+  );
+  const readAtByConversation = new Map(
+    (memberships ?? []).map((membership) => [
+      membership.conversation_id,
+      new Date(membership.last_read_at).getTime(),
+    ]),
+  );
+
   const conversations: Conversation[] = (rows ?? []).map((row) => {
     const membersRaw = row.conversation_members as { member_email: string }[] | null;
+    const members = (membersRaw ?? []).map((m) => m.member_email.toLowerCase());
+    const peerEmail =
+      row.type === 'private' ? members.find((member) => member !== normalized) : undefined;
+
     return {
       id: row.id,
       type: row.type as ConversationType,
-      name: row.name,
-      members: (membersRaw ?? []).map((m) => m.member_email),
+      name: peerEmail ? (namesByEmail.get(peerEmail) ?? row.name) : row.name,
+      members,
       createdAt: new Date(row.created_at).getTime(),
+      lastReadAt: readAtByConversation.get(row.id) ?? 0,
     };
   });
 
@@ -177,52 +209,24 @@ export async function createPrivateConversation(input: {
   const myEmail = input.myEmail.toLowerCase();
   const peerEmail = input.peerEmail.toLowerCase();
 
-  const existing = await loadConversationsForUser(myEmail);
-  if (!existing.ok) return existing;
-
-  const found = existing.data.find(
-    (c) =>
-      c.type === 'private' &&
-      c.members.length === 2 &&
-      c.members.includes(myEmail) &&
-      c.members.includes(peerEmail),
+  const { data: conversationId, error } = await supabase.rpc(
+    'get_or_create_private_conversation',
+    { peer_email: peerEmail },
   );
-  if (found) return { ok: true, data: found };
 
-  const { data: conv, error: convError } = await supabase
-    .from('conversations')
-    .insert({
-      type: 'private',
-      name: input.peerName,
-      created_by: input.userId,
-    })
-    .select('id, type, name, created_at')
-    .single();
-
-  if (convError || !conv) {
-    return { ok: false, error: mapError(convError, 'לא ניתן ליצור שיחה') };
+  if (error || !conversationId) {
+    return { ok: false, error: mapError(error, 'לא ניתן ליצור שיחה') };
   }
 
-  const { error: membersError } = await supabase.from('conversation_members').insert([
-    { conversation_id: conv.id, member_email: myEmail },
-    { conversation_id: conv.id, member_email: peerEmail },
-  ]);
+  const refreshed = await loadConversationsForUser(myEmail);
+  if (!refreshed.ok) return refreshed;
 
-  if (membersError) {
-    await supabase.from('conversations').delete().eq('id', conv.id);
-    return { ok: false, error: mapError(membersError, 'לא ניתן להוסיף משתתפים') };
+  const conversation = refreshed.data.find((item) => item.id === conversationId);
+  if (!conversation) {
+    return { ok: false, error: 'השיחה נוצרה אך לא ניתן היה לטעון אותה' };
   }
 
-  return {
-    ok: true,
-    data: {
-      id: conv.id,
-      type: 'private',
-      name: conv.name,
-      members: [myEmail, peerEmail],
-      createdAt: new Date(conv.created_at).getTime(),
-    },
-  };
+  return { ok: true, data: conversation };
 }
 
 export async function createGroupConversation(input: {
@@ -273,8 +277,27 @@ export async function createGroupConversation(input: {
       name: conv.name,
       members,
       createdAt: new Date(conv.created_at).getTime(),
+      lastReadAt: Date.now(),
     },
   };
+}
+
+export async function markConversationRead(
+  conversationId: string,
+  memberEmail: string,
+): Promise<Result<number>> {
+  const readAt = new Date().toISOString();
+  const { error } = await supabase
+    .from('conversation_members')
+    .update({ last_read_at: readAt })
+    .eq('conversation_id', conversationId)
+    .eq('member_email', memberEmail.toLowerCase());
+
+  if (error) {
+    return { ok: false, error: mapError(error, 'לא ניתן לעדכן סטטוס קריאה') };
+  }
+
+  return { ok: true, data: new Date(readAt).getTime() };
 }
 
 export async function insertMessage(input: {

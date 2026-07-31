@@ -8,6 +8,7 @@ import {
   insertMessage,
   loadConversationsForUser,
   loadMessages,
+  markConversationRead,
   mapMessage,
 } from '../lib/api';
 import { supabase, supabaseUrl } from '../lib/supabase';
@@ -36,6 +37,12 @@ function describeAuthError(error: { message?: string }): string {
   if (/invalid api key|api key/i.test(message)) {
     return 'מפתח ה-API לא תקין. בדקו את VITE_SUPABASE_ANON_KEY.';
   }
+  if (/rate limit|too many requests|over_email_send_rate/i.test(message)) {
+    return 'נשלחו יותר מדי מיילים בזמן קצר. המתינו כשעה ונסו שוב, או הגדירו SMTP משלכם ב-Supabase.';
+  }
+  if (/for security purposes|after \d+ seconds/i.test(message)) {
+    return 'נא להמתין מספר שניות לפני ניסיון נוסף.';
+  }
   if (/row-level security|violates row-level/i.test(message)) {
     return 'הרשאות מסד הנתונים חוסמות את הפעולה. הריצו מחדש את קובץ ה-SQL (schema.sql) ב-Supabase.';
   }
@@ -63,7 +70,7 @@ export function useMailChat() {
     if (!convResult.ok) {
       setError(convResult.error);
       setDataLoading(false);
-      return;
+      return null;
     }
 
     setConversations(convResult.data);
@@ -71,11 +78,12 @@ export function useMailChat() {
     if (!msgResult.ok) {
       setError(msgResult.error);
       setDataLoading(false);
-      return;
+      return null;
     }
 
     setMessages(msgResult.data);
     setDataLoading(false);
+    return convResult.data;
   }, []);
 
   useEffect(() => {
@@ -166,7 +174,10 @@ export function useMailChat() {
           };
 
           setConversations((prev) => {
-            if (!prev.some((c) => c.id === row.conversation_id)) return prev;
+            if (!prev.some((c) => c.id === row.conversation_id)) {
+              void refreshData(session.email);
+              return prev;
+            }
             setMessages((msgs) => {
               if (msgs.some((m) => m.id === row.id)) return msgs;
               return [...msgs, mapMessage(row)];
@@ -175,12 +186,37 @@ export function useMailChat() {
           });
         },
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversation_members',
+          filter: `member_email=eq.${session.email}`,
+        },
+        (payload) => {
+          const row = payload.new as { conversation_id: string };
+          void (async () => {
+            const loaded = await refreshData(session.email);
+            const incoming = loaded?.find(
+              (conversation) => conversation.id === row.conversation_id,
+            );
+            if (!incoming) return;
+
+            setActiveId((current) => {
+              if (current) return current;
+              setTab(incoming.type);
+              return incoming.id;
+            });
+          })();
+        },
+      )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [session]);
+  }, [session, refreshData]);
 
   useEffect(() => {
     if (!session) {
@@ -306,7 +342,11 @@ export function useMailChat() {
         const convMessages = messages
           .filter((m) => m.conversationId === c.id)
           .sort((a, b) => b.timestamp - a.timestamp);
-        return { ...c, lastMessage: convMessages[0] ?? null };
+        const unreadCount = convMessages.filter(
+          (message) =>
+            message.senderEmail !== session.email && message.timestamp > c.lastReadAt,
+        ).length;
+        return { ...c, lastMessage: convMessages[0] ?? null, unreadCount };
       })
       .sort(
         (a, b) =>
@@ -326,6 +366,29 @@ export function useMailChat() {
         .sort((a, b) => a.timestamp - b.timestamp),
     [messages, activeId],
   );
+
+  useEffect(() => {
+    if (!session || !activeConversation) return;
+
+    const newestIncoming = activeMessages
+      .filter((message) => message.senderEmail !== session.email)
+      .at(-1);
+
+    if (!newestIncoming || newestIncoming.timestamp <= activeConversation.lastReadAt) return;
+
+    void (async () => {
+      const result = await markConversationRead(activeConversation.id, session.email);
+      if (!result.ok) return;
+
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === activeConversation.id
+            ? { ...conversation, lastReadAt: result.data }
+            : conversation,
+        ),
+      );
+    })();
+  }, [activeConversation, activeMessages, session]);
 
   const startPrivateChat = useCallback(
     async (peerEmail: string) => {

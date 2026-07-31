@@ -15,6 +15,7 @@ export interface Conversation {
   name: string;
   members: string[];
   createdAt: number;
+  lastReadAt: number;
 }
 
 export interface Session {

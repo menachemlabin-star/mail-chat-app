@@ -13,6 +13,7 @@ import { NewChatModal, NewGroupModal } from './Modals';
 
 interface ConversationRow extends Conversation {
   lastMessage: Message | null;
+  unreadCount: number;
 }
 
 interface DashboardProps {
@@ -197,9 +198,19 @@ export function Dashboard({
                       {c.lastMessage?.text ?? 'עדיין אין הודעות'}
                     </div>
                   </div>
-                  <span className="time">
-                    {c.lastMessage ? formatTime(c.lastMessage.timestamp) : ''}
-                  </span>
+                  <div className="conversation-meta">
+                    <span className="time">
+                      {c.lastMessage ? formatTime(c.lastMessage.timestamp) : ''}
+                    </span>
+                    {c.unreadCount > 0 && (
+                      <span
+                        className="unread-badge"
+                        aria-label={`${c.unreadCount} הודעות שלא נקראו`}
+                      >
+                        {c.unreadCount > 99 ? '99+' : c.unreadCount}
+                      </span>
+                    )}
+                  </div>
                 </button>
               </li>
             ))
@@ -215,7 +226,7 @@ export function Dashboard({
                 <Mail size={30} />
               </div>
               <h2>בחרו שיחה</h2>
-              <p>או פתחו שיחה חדשה לפי כתובת מייל מהכפתור +</p>
+              <p>או פתחו שיחה עם משתמש רשום מהכפתור +</p>
             </div>
           </div>
         ) : (
