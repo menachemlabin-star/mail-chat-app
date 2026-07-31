@@ -91,6 +91,24 @@ export async function findProfileByEmail(email: string) {
   return data;
 }
 
+export async function listRegisteredUsers(excludeEmail?: string) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, email, display_name')
+    .order('display_name', { ascending: true });
+
+  if (error || !data) return [];
+
+  const exclude = excludeEmail?.toLowerCase();
+  return data
+    .filter((u) => !exclude || u.email.toLowerCase() !== exclude)
+    .map((u) => ({
+      id: u.id,
+      email: u.email,
+      displayName: u.display_name,
+    }));
+}
+
 export async function loadConversationsForUser(email: string): Promise<Result<Conversation[]>> {
   const normalized = email.toLowerCase();
 

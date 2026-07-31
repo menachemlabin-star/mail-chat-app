@@ -295,10 +295,18 @@ export function Dashboard({
       </section>
 
       {modal === 'private' && (
-        <NewChatModal onClose={() => setModal(null)} onSubmit={onStartPrivate} />
+        <NewChatModal
+          onClose={() => setModal(null)}
+          onSubmit={onStartPrivate}
+          currentEmail={session.email}
+        />
       )}
       {modal === 'group' && (
-        <NewGroupModal onClose={() => setModal(null)} onSubmit={onCreateGroup} />
+        <NewGroupModal
+          onClose={() => setModal(null)}
+          onSubmit={onCreateGroup}
+          currentEmail={session.email}
+        />
       )}
     </div>
   );

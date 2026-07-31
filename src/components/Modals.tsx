@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import type { ActionResult } from '../types';
+import { listRegisteredUsers } from '../lib/api';
 
 interface ModalProps {
   title: string;
@@ -34,15 +35,49 @@ function ModalShell({ title, subtitle, onClose, children }: ModalProps) {
   );
 }
 
+interface RegisteredUser {
+  id: string;
+  email: string;
+  displayName: string;
+}
+
 interface NewChatModalProps {
   onClose: () => void;
   onSubmit: (email: string) => Promise<ActionResult>;
+  currentEmail: string;
 }
 
-export function NewChatModal({ onClose, onSubmit }: NewChatModalProps) {
+export function NewChatModal({ onClose, onSubmit, currentEmail }: NewChatModalProps) {
   const [email, setEmail] = useState('');
+  const [users, setUsers] = useState<RegisteredUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setLoadingUsers(true);
+      const list = await listRegisteredUsers(currentEmail);
+      if (alive) {
+        setUsers(list);
+        setLoadingUsers(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [currentEmail]);
+
+  const filteredUsers = useMemo(() => {
+    const q = email.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter(
+      (u) =>
+        u.email.toLowerCase().includes(q) ||
+        u.displayName.toLowerCase().includes(q),
+    );
+  }, [users, email]);
 
   const handle = async (e: FormEvent) => {
     e.preventDefault();
@@ -57,10 +92,23 @@ export function NewChatModal({ onClose, onSubmit }: NewChatModalProps) {
     }
   };
 
+  const pickUser = async (userEmail: string) => {
+    setEmail(userEmail);
+    setBusy(true);
+    setError('');
+    try {
+      const result = await onSubmit(userEmail);
+      if (!result.ok) setError(result.error);
+      else onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <ModalShell
       title="שיחה חדשה"
-      subtitle="הזינו כתובת מייל של נמען לפתיחת שיחה פרטית."
+      subtitle="בחרו משתמש מהרשימה, או הזינו כתובת מייל."
       onClose={onClose}
     >
       <form onSubmit={handle}>
@@ -71,17 +119,45 @@ export function NewChatModal({ onClose, onSubmit }: NewChatModalProps) {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="friend@email.com"
             autoFocus
-            required
           />
         </div>
+
+        <div className="user-picker">
+          <div className="user-picker-label">משתמשים רשומים באתר</div>
+          {loadingUsers ? (
+            <p className="user-picker-empty">טוען רשימה…</p>
+          ) : filteredUsers.length === 0 ? (
+            <p className="user-picker-empty">
+              {users.length === 0
+                ? 'עדיין אין משתמשים אחרים רשומים.'
+                : 'אין התאמה לחיפוש.'}
+            </p>
+          ) : (
+            <ul className="user-picker-list">
+              {filteredUsers.map((u) => (
+                <li key={u.id}>
+                  <button
+                    type="button"
+                    className={`user-picker-item ${email === u.email ? 'selected' : ''}`}
+                    onClick={() => void pickUser(u.email)}
+                    disabled={busy}
+                  >
+                    <span className="user-picker-name">{u.displayName}</span>
+                    <span className="user-picker-email">{u.email}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         {error && <div className="auth-error">{error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
             ביטול
           </button>
-          <button type="submit" className="btn btn-primary" disabled={busy}>
+          <button type="submit" className="btn btn-primary" disabled={busy || !email.trim()}>
             {busy ? 'יוצר…' : 'פתיחת שיחה'}
           </button>
         </div>
@@ -93,24 +169,44 @@ export function NewChatModal({ onClose, onSubmit }: NewChatModalProps) {
 interface NewGroupModalProps {
   onClose: () => void;
   onSubmit: (name: string, emails: string[]) => Promise<ActionResult>;
+  currentEmail: string;
 }
 
-export function NewGroupModal({ onClose, onSubmit }: NewGroupModalProps) {
+export function NewGroupModal({ onClose, onSubmit, currentEmail }: NewGroupModalProps) {
   const [name, setName] = useState('');
-  const [emails, setEmails] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [users, setUsers] = useState<RegisteredUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setLoadingUsers(true);
+      const list = await listRegisteredUsers(currentEmail);
+      if (alive) {
+        setUsers(list);
+        setLoadingUsers(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [currentEmail]);
+
+  const toggle = (email: string) => {
+    setSelected((prev) =>
+      prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email],
+    );
+  };
 
   const handle = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const list = emails
-        .split(/[,;\s]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const result = await onSubmit(name, list);
+      const result = await onSubmit(name, selected);
       if (!result.ok) setError(result.error);
       else onClose();
     } finally {
@@ -121,7 +217,7 @@ export function NewGroupModal({ onClose, onSubmit }: NewGroupModalProps) {
   return (
     <ModalShell
       title="קבוצה חדשה"
-      subtitle="בחרו שם לקבוצה והוסיפו חברים לפי כתובות מייל."
+      subtitle="בחרו שם לקבוצה והוסיפו חברים מהרשימה."
       onClose={onClose}
     >
       <form onSubmit={handle}>
@@ -131,20 +227,36 @@ export function NewGroupModal({ onClose, onSubmit }: NewGroupModalProps) {
             id="group-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="למשל: צוות עיצוב"
             autoFocus
             required
           />
         </div>
-        <div className="field">
-          <label htmlFor="group-emails">חברים (מיילים מופרדים בפסיק)</label>
-          <input
-            id="group-emails"
-            value={emails}
-            onChange={(e) => setEmails(e.target.value)}
-            placeholder="a@mail.com, b@mail.com"
-          />
+
+        <div className="user-picker">
+          <div className="user-picker-label">בחירת חברים</div>
+          {loadingUsers ? (
+            <p className="user-picker-empty">טוען רשימה…</p>
+          ) : users.length === 0 ? (
+            <p className="user-picker-empty">עדיין אין משתמשים אחרים רשומים.</p>
+          ) : (
+            <ul className="user-picker-list">
+              {users.map((u) => (
+                <li key={u.id}>
+                  <button
+                    type="button"
+                    className={`user-picker-item ${selected.includes(u.email) ? 'selected' : ''}`}
+                    onClick={() => toggle(u.email)}
+                    disabled={busy}
+                  >
+                    <span className="user-picker-name">{u.displayName}</span>
+                    <span className="user-picker-email">{u.email}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+
         {error && <div className="auth-error">{error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
