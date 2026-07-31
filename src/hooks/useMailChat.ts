@@ -27,6 +27,12 @@ function describeAuthError(error: { message?: string }): string {
   if (/already registered|already exists/i.test(message)) {
     return 'כתובת המייל כבר רשומה. עברו להתחברות.';
   }
+  if (/signups? (are )?disabled|signup is disabled/i.test(message)) {
+    return 'הרשמה חסומה בהגדרות Supabase. הפעילו Allow new users to sign up.';
+  }
+  if (/password should be at least/i.test(message)) {
+    return 'הסיסמה קצרה מדי. נדרשים לפחות 6 תווים.';
+  }
   if (/invalid api key|api key/i.test(message)) {
     return 'מפתח ה-API לא תקין. בדקו את VITE_SUPABASE_ANON_KEY.';
   }
