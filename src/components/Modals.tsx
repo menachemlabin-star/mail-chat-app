@@ -48,7 +48,8 @@ interface NewChatModalProps {
 }
 
 export function NewChatModal({ onClose, onSubmit, currentEmail }: NewChatModalProps) {
-  const [email, setEmail] = useState('');
+  const [query, setQuery] = useState('');
+  const [selectedEmail, setSelectedEmail] = useState('');
   const [users, setUsers] = useState<RegisteredUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState('');
@@ -70,30 +71,17 @@ export function NewChatModal({ onClose, onSubmit, currentEmail }: NewChatModalPr
   }, [currentEmail]);
 
   const filteredUsers = useMemo(() => {
-    const q = email.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
     if (!q) return users;
     return users.filter(
       (u) =>
         u.email.toLowerCase().includes(q) ||
         u.displayName.toLowerCase().includes(q),
     );
-  }, [users, email]);
+  }, [users, query]);
 
-  const handle = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError('');
-    try {
-      const result = await onSubmit(email);
-      if (!result.ok) setError(result.error);
-      else onClose();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const pickUser = async (userEmail: string) => {
-    setEmail(userEmail);
+  const openWith = async (userEmail: string) => {
+    setSelectedEmail(userEmail);
     setBusy(true);
     setError('');
     try {
@@ -105,23 +93,34 @@ export function NewChatModal({ onClose, onSubmit, currentEmail }: NewChatModalPr
     }
   };
 
+  const handle = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedEmail) {
+      setError('נא לבחור משתמש רשום מהרשימה');
+      return;
+    }
+    await openWith(selectedEmail);
+  };
+
   return (
     <ModalShell
       title="שיחה חדשה"
-      subtitle="בחרו משתמש מהרשימה, או הזינו כתובת מייל."
+      subtitle="אפשר לפתוח שיחה רק עם משתמשים שרשומים באתר."
       onClose={onClose}
     >
       <form onSubmit={handle}>
-        <div className="field">
-          <label htmlFor="peer-email">מייל הנמען</label>
-          <input
-            id="peer-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoFocus
-          />
-        </div>
+        {users.length > 0 && (
+          <div className="field">
+            <label htmlFor="user-search">חיפוש משתמש</label>
+            <input
+              id="user-search"
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoFocus
+            />
+          </div>
+        )}
 
         <div className="user-picker">
           <div className="user-picker-label">משתמשים רשומים באתר</div>
@@ -139,8 +138,8 @@ export function NewChatModal({ onClose, onSubmit, currentEmail }: NewChatModalPr
                 <li key={u.id}>
                   <button
                     type="button"
-                    className={`user-picker-item ${email === u.email ? 'selected' : ''}`}
-                    onClick={() => void pickUser(u.email)}
+                    className={`user-picker-item ${selectedEmail === u.email ? 'selected' : ''}`}
+                    onClick={() => void openWith(u.email)}
                     disabled={busy}
                   >
                     <span className="user-picker-name">{u.displayName}</span>
@@ -157,7 +156,11 @@ export function NewChatModal({ onClose, onSubmit, currentEmail }: NewChatModalPr
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
             ביטול
           </button>
-          <button type="submit" className="btn btn-primary" disabled={busy || !email.trim()}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={busy || !selectedEmail || users.length === 0}
+          >
             {busy ? 'יוצר…' : 'פתיחת שיחה'}
           </button>
         </div>
@@ -217,7 +220,7 @@ export function NewGroupModal({ onClose, onSubmit, currentEmail }: NewGroupModal
   return (
     <ModalShell
       title="קבוצה חדשה"
-      subtitle="בחרו שם לקבוצה והוסיפו חברים מהרשימה."
+      subtitle="אפשר להוסיף לקבוצה רק משתמשים שרשומים באתר."
       onClose={onClose}
     >
       <form onSubmit={handle}>

@@ -335,11 +335,15 @@ export function useMailChat() {
       if (peer === session.email) return { ok: false as const, error: 'לא ניתן לפתוח שיחה עם עצמך' };
 
       const known = await findProfileByEmail(peer);
+      if (!known) {
+        return { ok: false as const, error: 'ניתן לפתוח שיחה רק עם משתמשים רשומים באתר' };
+      }
+
       const result = await createPrivateConversation({
         userId: session.id,
         myEmail: session.email,
         peerEmail: peer,
-        peerName: known?.display_name ?? peer.split('@')[0],
+        peerName: known.display_name,
       });
 
       if (!result.ok) return result;
@@ -359,6 +363,19 @@ export function useMailChat() {
     async (name: string, memberEmails: string[]) => {
       if (!session) return { ok: false as const, error: 'לא מחובר' };
       if (!name.trim()) return { ok: false as const, error: 'נא להזין שם קבוצה' };
+      if (memberEmails.length === 0) {
+        return { ok: false as const, error: 'נא לבחור לפחות חבר אחד מהרשימה' };
+      }
+
+      for (const memberEmail of memberEmails) {
+        const known = await findProfileByEmail(memberEmail);
+        if (!known) {
+          return {
+            ok: false as const,
+            error: 'ניתן להוסיף לקבוצה רק משתמשים רשומים באתר',
+          };
+        }
+      }
 
       const result = await createGroupConversation({
         userId: session.id,
