@@ -53,6 +53,7 @@ export function useMailChat() {
   const [tab, setTab] = useState<ConversationType>('private');
   const [onlineEmails, setOnlineEmails] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
 
   const refreshData = useCallback(async (email: string) => {
     setDataLoading(true);
@@ -107,11 +108,16 @@ export function useMailChat() {
 
     void bootstrap();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       void (async () => {
+        if (event === 'PASSWORD_RECOVERY') {
+          setPasswordRecovery(true);
+        }
+
         const user = nextSession?.user;
         if (!user?.email) {
           setSession(null);
+          setPasswordRecovery(false);
           setConversations([]);
           setMessages([]);
           setActiveId(null);
@@ -128,7 +134,10 @@ export function useMailChat() {
         );
         setSession(profile);
         setAuthLoading(false);
-        await refreshData(profile.email);
+
+        if (event !== 'PASSWORD_RECOVERY') {
+          await refreshData(profile.email);
+        }
       })();
     });
 
@@ -246,9 +255,44 @@ export function useMailChat() {
     return { ok: true as const };
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized.includes('@')) {
+      return { ok: false as const, error: 'נא להזין כתובת מייל תקינה' };
+    }
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalized, {
+      redirectTo: window.location.origin,
+    });
+
+    if (resetError) {
+      return { ok: false as const, error: describeAuthError(resetError) };
+    }
+
+    return { ok: true as const };
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (password.length < 6) {
+      return { ok: false as const, error: 'הסיסמה חייבת להכיל לפחות 6 תווים' };
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) {
+      return { ok: false as const, error: describeAuthError(updateError) };
+    }
+
+    setPasswordRecovery(false);
+    if (session) {
+      await refreshData(session.email);
+    }
+    return { ok: true as const };
+  }, [session, refreshData]);
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setSession(null);
+    setPasswordRecovery(false);
     setConversations([]);
     setMessages([]);
     setActiveId(null);
@@ -369,6 +413,7 @@ export function useMailChat() {
     authLoading,
     dataLoading,
     error,
+    passwordRecovery,
     tab,
     setTab,
     activeId,
@@ -380,6 +425,8 @@ export function useMailChat() {
     peerEmail,
     register,
     login,
+    resetPassword,
+    updatePassword,
     logout,
     startPrivateChat,
     createGroup,

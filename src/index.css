@@ -152,6 +152,13 @@ button:disabled {
   line-height: 1.55;
 }
 
+.auth-form-title {
+  margin: 0 0 18px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
 .mode-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -324,6 +331,34 @@ button:disabled {
   padding: 10px 12px;
   font-size: 0.9rem;
   margin-bottom: 12px;
+}
+
+.auth-info {
+  background: rgba(15, 118, 110, 0.1);
+  color: var(--teal-deep);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.forgot-row {
+  display: flex;
+  justify-content: flex-start;
+  margin: -4px 0 14px;
+}
+
+.forgot-link {
+  border: 0;
+  background: none;
+  color: var(--teal);
+  font-weight: 650;
+  font-size: 0.88rem;
+  padding: 0;
+}
+
+.forgot-link:hover {
+  text-decoration: underline;
 }
 
 .btn {

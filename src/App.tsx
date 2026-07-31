@@ -18,12 +18,15 @@ export default function App() {
     );
   }
 
-  if (!chat.session) {
+  if (!chat.session || chat.passwordRecovery) {
     return (
       <div className="app-shell">
         <AuthScreen
           onLogin={chat.login}
           onRegister={chat.register}
+          onResetPassword={chat.resetPassword}
+          onUpdatePassword={chat.updatePassword}
+          forceReset={chat.passwordRecovery}
         />
       </div>
     );
