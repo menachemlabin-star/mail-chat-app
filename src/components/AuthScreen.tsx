@@ -74,7 +74,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           <h1 className="brand-name">צ׳אט כנסת הגדולה</h1>
         </div>
 
-        <form onSubmit={submit} autoComplete="on">
+        <form key={view} onSubmit={submit} autoComplete="on">
           {view === 'register' && (
             <div className="field">
               <label htmlFor="displayName">שם ומשפחה</label>
@@ -96,7 +96,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              autoComplete="username"
               required
             />
           </div>
@@ -110,7 +110,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete={view === 'login' ? 'current-password' : 'new-password'}
+                autoComplete={view === 'register' ? 'new-password' : 'current-password'}
                 required
               />
               <button
