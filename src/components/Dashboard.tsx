@@ -5,6 +5,7 @@ import {
   MessageSquarePlus,
   Plus,
   Send,
+  Trash2,
   Users,
   UsersRound,
 } from 'lucide-react';
@@ -33,6 +34,7 @@ interface DashboardProps {
   onStartPrivate: (email: string) => Promise<ActionResult>;
   onCreateGroup: (name: string, emails: string[]) => Promise<ActionResult>;
   onSend: (text: string) => void | Promise<void>;
+  onDeleteConversation: (conversationId: string) => Promise<ActionResult>;
 }
 
 function initials(name: string) {
@@ -72,10 +74,17 @@ export function Dashboard({
   onStartPrivate,
   onCreateGroup,
   onSend,
+  onDeleteConversation,
 }: DashboardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [modal, setModal] = useState<'private' | 'group' | null>(null);
   const [draft, setDraft] = useState('');
+  const [contextMenu, setContextMenu] = useState<{
+    conversationId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -86,10 +95,45 @@ export function Dashboard({
     setDraft('');
   }, [activeId]);
 
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const close = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [contextMenu]);
+
   const send = () => {
     if (!draft.trim()) return;
     onSend(draft);
     setDraft('');
+  };
+
+  const deleteFromMenu = async () => {
+    if (!contextMenu || deleting) return;
+    const confirmed = window.confirm('למחוק את השיחה מהרשימה?');
+    if (!confirmed) {
+      setContextMenu(null);
+      return;
+    }
+
+    setDeleting(true);
+    const result = await onDeleteConversation(contextMenu.conversationId);
+    setDeleting(false);
+    setContextMenu(null);
+    if (!result.ok) {
+      window.alert(result.error);
+    }
   };
 
   const peerOnline = peerEmail ? onlineEmails.has(peerEmail) : false;
@@ -188,6 +232,15 @@ export function Dashboard({
                   type="button"
                   className={`conversation-item ${activeId === c.id ? 'active' : ''}`}
                   onClick={() => setActiveId(c.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    setContextMenu({
+                      conversationId: c.id,
+                      x: e.clientX,
+                      y: e.clientY,
+                    });
+                  }}
                 >
                   <div className="avatar sm" aria-hidden>
                     {initials(c.name)}
@@ -216,6 +269,20 @@ export function Dashboard({
             ))
           )}
         </ul>
+
+        {contextMenu && (
+          <div
+            className="context-menu"
+            style={{ top: contextMenu.y, left: contextMenu.x }}
+            onClick={(e) => e.stopPropagation()}
+            role="menu"
+          >
+            <button type="button" onClick={() => void deleteFromMenu()} disabled={deleting}>
+              <Trash2 size={16} />
+              {deleting ? 'מוחק…' : 'מחק שיחה'}
+            </button>
+          </div>
+        )}
       </aside>
 
       <section className="chat-panel">

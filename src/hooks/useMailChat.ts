@@ -9,6 +9,7 @@ import {
   loadConversationsForUser,
   loadMessages,
   markConversationRead,
+  deleteConversationForMe,
   mapMessage,
 } from '../lib/api';
 import { supabase, supabaseUrl } from '../lib/supabase';
@@ -483,6 +484,21 @@ export function useMailChat() {
     [session, activeId],
   );
 
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      if (!session) return { ok: false as const, error: 'לא מחובר' };
+
+      const result = await deleteConversationForMe(conversationId, session.email);
+      if (!result.ok) return result;
+
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      setMessages((prev) => prev.filter((m) => m.conversationId !== conversationId));
+      setActiveId((current) => (current === conversationId ? null : current));
+      return { ok: true as const };
+    },
+    [session],
+  );
+
   const peerEmail = useMemo(() => {
     if (!session || !activeConversation || activeConversation.type !== 'private') return null;
     return activeConversation.members.find((m) => m !== session.email) ?? null;
@@ -511,5 +527,6 @@ export function useMailChat() {
     startPrivateChat,
     createGroup,
     sendMessage,
+    deleteConversation,
   };
 }

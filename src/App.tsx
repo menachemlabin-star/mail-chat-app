@@ -51,6 +51,7 @@ export default function App() {
         onStartPrivate={chat.startPrivateChat}
         onCreateGroup={chat.createGroup}
         onSend={chat.sendMessage}
+        onDeleteConversation={chat.deleteConversation}
       />
     </div>
   );

@@ -9,7 +9,12 @@ function isMissingReadColumn(error: { message?: string } | null) {
 
 function isMissingRpc(error: { message?: string } | null) {
   const message = error?.message ?? '';
-  return /get_or_create_private_conversation/i.test(message) || /function.*does not exist/i.test(message);
+  return (
+    /get_or_create_private_conversation/i.test(message) ||
+    /delete_conversation_for_me/i.test(message) ||
+    /function.*does not exist/i.test(message) ||
+    /could not find the function/i.test(message)
+  );
 }
 
 function mapError(error: { message?: string } | null, fallback: string) {
@@ -390,6 +395,49 @@ export async function markConversationRead(
   }
 
   return { ok: true, data: new Date(readAt).getTime() };
+}
+
+export async function deleteConversationForMe(
+  conversationId: string,
+  memberEmail: string,
+): Promise<Result<true>> {
+  const { error: rpcError } = await supabase.rpc('delete_conversation_for_me', {
+    conv_id: conversationId,
+  });
+
+  if (!rpcError) {
+    return { ok: true, data: true };
+  }
+
+  if (!isMissingRpc(rpcError) && !/delete_conversation_for_me/i.test(rpcError.message ?? '')) {
+    return { ok: false, error: mapError(rpcError, 'לא ניתן למחוק את השיחה') };
+  }
+
+  // Fallback before SQL migration: remove my membership, then try delete if I created it.
+  const { error: leaveError } = await supabase
+    .from('conversation_members')
+    .delete()
+    .eq('conversation_id', conversationId)
+    .eq('member_email', memberEmail.toLowerCase());
+
+  if (leaveError) {
+    const { error: deleteError } = await supabase
+      .from('conversations')
+      .delete()
+      .eq('id', conversationId);
+
+    if (deleteError) {
+      return {
+        ok: false,
+        error: mapError(
+          leaveError,
+          'לא ניתן למחוק את השיחה. הריצו את עדכון ה-SQL ב-Supabase.',
+        ),
+      };
+    }
+  }
+
+  return { ok: true, data: true };
 }
 
 export async function insertMessage(input: {
