@@ -10,7 +10,7 @@ export default function App() {
       <div className="app-shell auth-page">
         <div className="auth-card" style={{ textAlign: 'center' }}>
           <div className="brand" style={{ justifyContent: 'center' }}>
-            <h1 className="brand-name">Chat</h1>
+            <h1 className="brand-name">צ׳אט כנסת הגדולה</h1>
           </div>
           <p className="auth-tagline">מתחבר…</p>
         </div>

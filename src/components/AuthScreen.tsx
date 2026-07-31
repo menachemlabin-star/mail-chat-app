@@ -65,30 +65,7 @@ export function AuthScreen({ onLogin, onRegister }: AuthScreenProps) {
           <div className="brand-mark" aria-hidden>
             <Mail size={22} />
           </div>
-          <h1 className="brand-name">Chat</h1>
-        </div>
-
-        <div className="mode-toggle" role="tablist" aria-label="התחברות או הרשמה">
-          <button
-            type="button"
-            className={view === 'login' ? 'active' : ''}
-            onClick={() => {
-              setView('login');
-              setError('');
-            }}
-          >
-            התחברות
-          </button>
-          <button
-            type="button"
-            className={view === 'register' ? 'active' : ''}
-            onClick={() => {
-              setView('register');
-              setError('');
-            }}
-          >
-            הרשמה
-          </button>
+          <h1 className="brand-name">צ׳אט כנסת הגדולה</h1>
         </div>
 
         <form onSubmit={submit}>
