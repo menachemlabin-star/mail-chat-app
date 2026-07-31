@@ -46,7 +46,7 @@ declare
   me text := public.auth_email();
   peer text := lower(trim(peer_email));
   pair_key text;
-  conversation_id uuid;
+  v_conversation_id uuid;
   peer_name text;
 begin
   if auth.uid() is null or me = '' then
@@ -75,15 +75,15 @@ begin
   values ('private', peer_name, pair_key, auth.uid())
   on conflict (private_key) where private_key is not null
   do update set private_key = excluded.private_key
-  returning id into conversation_id;
+  returning id into v_conversation_id;
 
   insert into public.conversation_members (conversation_id, member_email)
   values
-    (conversation_id, me),
-    (conversation_id, peer)
+    (v_conversation_id, me),
+    (v_conversation_id, peer)
   on conflict (conversation_id, member_email) do nothing;
 
-  return conversation_id;
+  return v_conversation_id;
 end;
 $$;
 
