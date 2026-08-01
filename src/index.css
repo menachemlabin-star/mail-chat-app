@@ -983,10 +983,15 @@ button:disabled {
   color: var(--teal-deep);
 }
 
+.action-menu-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .action-menu {
   position: absolute;
-  top: 58px;
-  left: 16px;
+  top: calc(100% + 8px);
+  left: 0;
   background: white;
   border: 1px solid var(--line);
   border-radius: 14px;

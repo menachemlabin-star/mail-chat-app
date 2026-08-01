@@ -101,6 +101,7 @@ export function Dashboard({
   const [lightbox, setLightbox] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -115,6 +116,33 @@ export function Dashboard({
     });
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [activeId]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node | null;
+      if (target && actionMenuRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+
+    // Defer so the opening click on "+" doesn't immediately close the menu.
+    const timer = window.setTimeout(() => {
+      document.addEventListener('mousedown', onPointerDown);
+      document.addEventListener('touchstart', onPointerDown);
+    }, 0);
+    window.addEventListener('keydown', onKey);
+
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -226,40 +254,42 @@ export function Dashboard({
               קבוצות
             </button>
           </div>
-          <button
-            className="icon-btn primary"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="פעולה מהירה"
-            title="פעולה מהירה"
-          >
-            <Plus size={20} />
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div className="action-menu">
+          <div className="action-menu-wrap" ref={actionMenuRef}>
             <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                setModal('private');
-              }}
+              className="icon-btn primary"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="פעולה מהירה"
+              title="פעולה מהירה"
+              aria-expanded={menuOpen}
             >
-              <MessageSquarePlus size={16} />
-              פתח שיחה חדשה
+              <Plus size={20} />
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMenuOpen(false);
-                setModal('group');
-              }}
-            >
-              <UsersRound size={16} />
-              צור קבוצה חדשה
-            </button>
+            {menuOpen && (
+              <div className="action-menu">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setModal('private');
+                  }}
+                >
+                  <MessageSquarePlus size={16} />
+                  פתח שיחה חדשה
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setModal('group');
+                  }}
+                >
+                  <UsersRound size={16} />
+                  צור קבוצה חדשה
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         <ul className="conversation-list">
           {error && (
