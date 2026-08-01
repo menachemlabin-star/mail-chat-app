@@ -444,17 +444,6 @@ export function Dashboard({
         </button>
       </nav>
 
-      <aside className="updates-panel panel-card">
-        <div className="panel-heading">
-          <Bell size={18} />
-          <h2>עידכונים</h2>
-          {unreadTotal > 0 && (
-            <span className="unread-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
-          )}
-        </div>
-        {renderUpdatesList()}
-      </aside>
-
       <aside className="sidebar sidebar-relative panel-card">
         <div className="profile desktop-only">
           <div className="avatar" aria-hidden>
@@ -753,6 +742,17 @@ export function Dashboard({
           </>
         )}
       </section>
+
+      <aside className="updates-panel panel-card">
+        <div className="panel-heading">
+          <Bell size={18} />
+          <h2>עידכונים</h2>
+          {unreadTotal > 0 && (
+            <span className="unread-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+          )}
+        </div>
+        {renderUpdatesList()}
+      </aside>
 
       <aside className="mobile-updates panel-card">
         <div className="panel-heading">

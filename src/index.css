@@ -415,7 +415,7 @@ button:disabled {
 .dashboard {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 22%) minmax(260px, 28%) 1fr;
+  grid-template-columns: minmax(260px, 28%) 1fr minmax(220px, 22%);
   gap: 16px;
   padding: 16px;
   animation: fade-in 0.45s ease;
