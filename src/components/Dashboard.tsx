@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ArrowRight,
+  Bell,
   ImagePlus,
   LogOut,
   Mail,
+  Menu,
   MessageSquarePlus,
   Plus,
   Send,
@@ -20,11 +23,14 @@ interface ConversationRow extends Conversation {
   unreadCount: number;
 }
 
+type MobilePane = 'updates' | 'chats' | 'chat';
+
 interface DashboardProps {
   session: Session;
   tab: ConversationType;
   setTab: (tab: ConversationType) => void;
   conversations: ConversationRow[];
+  updates: ConversationRow[];
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   activeConversation: Conversation | null;
@@ -72,6 +78,7 @@ export function Dashboard({
   tab,
   setTab,
   conversations,
+  updates,
   activeId,
   setActiveId,
   activeConversation,
@@ -87,6 +94,8 @@ export function Dashboard({
   onDeleteConversation,
 }: DashboardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const [mobilePane, setMobilePane] = useState<MobilePane>('chats');
   const [modal, setModal] = useState<'private' | 'group' | null>(null);
   const [draft, setDraft] = useState('');
   const [contextMenu, setContextMenu] = useState<{
@@ -101,7 +110,6 @@ export function Dashboard({
   const [lightbox, setLightbox] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const actionMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -121,15 +129,14 @@ export function Dashboard({
     if (!menuOpen) return;
 
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as Node | null;
-      if (target && actionMenuRef.current?.contains(target)) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('.action-menu-wrap')) return;
       setMenuOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMenuOpen(false);
     };
 
-    // Defer so the opening click on "+" doesn't immediately close the menu.
     const timer = window.setTimeout(() => {
       document.addEventListener('mousedown', onPointerDown);
       document.addEventListener('touchstart', onPointerDown);
@@ -170,6 +177,19 @@ export function Dashboard({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [lightbox]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNavOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [navOpen]);
+
+  useEffect(() => {
+    if (activeId) setMobilePane('chat');
+  }, [activeId]);
 
   const clearImage = () => {
     setImageFile(null);
@@ -219,12 +239,224 @@ export function Dashboard({
     }
   };
 
+  const openConversation = (id: string, type?: ConversationType) => {
+    if (type) setTab(type);
+    setActiveId(id);
+    setMobilePane('chat');
+    setNavOpen(false);
+  };
+
   const peerOnline = peerEmail ? onlineEmails.has(peerEmail) : false;
+  const unreadTotal = updates.reduce((sum, c) => sum + c.unreadCount, 0);
+
+  const renderUpdatesList = () => (
+    <ul className="conversation-list updates-list">
+      {updates.length === 0 ? (
+        <li className="empty-list">
+          <Bell size={28} />
+          <p>אין עידכונים חדשים</p>
+        </li>
+      ) : (
+        updates.map((c) => (
+          <li key={c.id}>
+            <button
+              type="button"
+              className={`conversation-item ${activeId === c.id ? 'active' : ''}`}
+              onClick={() => openConversation(c.id, c.type)}
+            >
+              {c.lastMessage?.imageUrl ? (
+                <div className="conversation-thumb">
+                  <ChatImage src={c.lastMessage.imageUrl} className="conversation-thumb-img" />
+                </div>
+              ) : (
+                <div className="avatar sm" aria-hidden>
+                  {initials(c.name)}
+                </div>
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div className="title">{c.name}</div>
+                <div className="preview">{messagePreview(c.lastMessage)}</div>
+              </div>
+              <div className="conversation-meta">
+                <span className="time">
+                  {c.lastMessage ? formatTime(c.lastMessage.timestamp) : ''}
+                </span>
+                {c.unreadCount > 0 && (
+                  <span className="unread-badge" aria-label={`${c.unreadCount} הודעות שלא נקראו`}>
+                    {c.unreadCount > 99 ? '99+' : c.unreadCount}
+                  </span>
+                )}
+              </div>
+            </button>
+          </li>
+        ))
+      )}
+    </ul>
+  );
 
   return (
-    <div className="dashboard">
-      <aside className="sidebar sidebar-relative">
-        <div className="profile">
+    <div
+      className={`dashboard mobile-pane-${mobilePane}${activeConversation ? ' has-active-chat' : ''}`}
+    >
+      <header className="mobile-topbar">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={() => setNavOpen(true)}
+          aria-label="תפריט"
+          title="תפריט"
+        >
+          <Menu size={20} />
+          {unreadTotal > 0 && <span className="mobile-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>}
+        </button>
+        <strong className="mobile-brand">צ׳אט כנסת הגדולה</strong>
+        <div className="action-menu-wrap mobile-plus-wrap">
+          <button
+            type="button"
+            className="icon-btn primary"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label="פעולה מהירה"
+            aria-expanded={menuOpen}
+          >
+            <Plus size={20} />
+          </button>
+          {menuOpen && (
+            <div className="action-menu">
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setModal('private');
+                }}
+              >
+                <MessageSquarePlus size={16} />
+                פתח שיחה חדשה
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  setModal('group');
+                }}
+              >
+                <UsersRound size={16} />
+                צור קבוצה חדשה
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+
+      {navOpen && (
+        <button
+          type="button"
+          className="nav-backdrop"
+          aria-label="סגירת תפריט"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+
+      <nav className={`mobile-drawer${navOpen ? ' open' : ''}`} aria-label="תפריט ניווט">
+        <div className="mobile-drawer-header">
+          <div className="avatar" aria-hidden>
+            {initials(session.displayName)}
+          </div>
+          <div className="profile-meta">
+            <strong>{session.displayName}</strong>
+            <span title={session.email}>{session.email}</span>
+          </div>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => setNavOpen(false)}
+            aria-label="סגירה"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mobile-drawer-nav">
+          <button
+            type="button"
+            className={mobilePane === 'updates' ? 'active' : ''}
+            onClick={() => {
+              setMobilePane('updates');
+              setNavOpen(false);
+            }}
+          >
+            <Bell size={18} />
+            עידכונים
+            {unreadTotal > 0 && (
+              <span className="unread-badge drawer-badge">
+                {unreadTotal > 99 ? '99+' : unreadTotal}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={mobilePane === 'chats' && tab === 'private' ? 'active' : ''}
+            onClick={() => {
+              setTab('private');
+              setMobilePane('chats');
+              setNavOpen(false);
+            }}
+          >
+            <Mail size={18} />
+            שיחות פרטיות
+          </button>
+          <button
+            type="button"
+            className={mobilePane === 'chats' && tab === 'group' ? 'active' : ''}
+            onClick={() => {
+              setTab('group');
+              setMobilePane('chats');
+              setNavOpen(false);
+            }}
+          >
+            <Users size={18} />
+            קבוצות
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNavOpen(false);
+              setModal('private');
+            }}
+          >
+            <MessageSquarePlus size={18} />
+            שיחה חדשה
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setNavOpen(false);
+              setModal('group');
+            }}
+          >
+            <UsersRound size={18} />
+            קבוצה חדשה
+          </button>
+        </div>
+
+        <button type="button" className="mobile-drawer-logout" onClick={() => void onLogout()}>
+          <LogOut size={18} />
+          התנתקות
+        </button>
+      </nav>
+
+      <aside className="updates-panel panel-card">
+        <div className="panel-heading">
+          <Bell size={18} />
+          <h2>עידכונים</h2>
+          {unreadTotal > 0 && (
+            <span className="unread-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+          )}
+        </div>
+        {renderUpdatesList()}
+      </aside>
+
+      <aside className="sidebar sidebar-relative panel-card">
+        <div className="profile desktop-only">
           <div className="avatar" aria-hidden>
             {initials(session.displayName)}
           </div>
@@ -237,7 +469,11 @@ export function Dashboard({
           </button>
         </div>
 
-        <div className="sidebar-toolbar">
+        <div className="mobile-section-title">
+          <h2>{tab === 'private' ? 'שיחות פרטיות' : 'קבוצות'}</h2>
+        </div>
+
+        <div className="sidebar-toolbar desktop-only">
           <div className="tabs" role="tablist">
             <button
               type="button"
@@ -254,7 +490,7 @@ export function Dashboard({
               קבוצות
             </button>
           </div>
-          <div className="action-menu-wrap" ref={actionMenuRef}>
+          <div className="action-menu-wrap">
             <button
               className="icon-btn primary"
               onClick={() => setMenuOpen((v) => !v)}
@@ -316,7 +552,7 @@ export function Dashboard({
                 <button
                   type="button"
                   className={`conversation-item ${activeId === c.id ? 'active' : ''}`}
-                  onClick={() => setActiveId(c.id)}
+                  onClick={() => openConversation(c.id)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setMenuOpen(false);
@@ -338,9 +574,7 @@ export function Dashboard({
                   )}
                   <div style={{ minWidth: 0 }}>
                     <div className="title">{c.name}</div>
-                    <div className="preview">
-                      {messagePreview(c.lastMessage)}
-                    </div>
+                    <div className="preview">{messagePreview(c.lastMessage)}</div>
                   </div>
                   <div className="conversation-meta">
                     <span className="time">
@@ -376,7 +610,7 @@ export function Dashboard({
         )}
       </aside>
 
-      <section className="chat-panel">
+      <section className="chat-panel panel-card">
         {!activeConversation ? (
           <div className="chat-empty">
             <div>
@@ -390,6 +624,17 @@ export function Dashboard({
         ) : (
           <>
             <header className="chat-header">
+              <button
+                type="button"
+                className="icon-btn mobile-back"
+                onClick={() => {
+                  setMobilePane('chats');
+                  setActiveId(null);
+                }}
+                aria-label="חזרה לרשימה"
+              >
+                <ArrowRight size={18} />
+              </button>
               <div className="chat-header-main">
                 <div className="avatar" aria-hidden>
                   {initials(activeConversation.name)}
@@ -508,6 +753,17 @@ export function Dashboard({
           </>
         )}
       </section>
+
+      <aside className="mobile-updates panel-card">
+        <div className="panel-heading">
+          <Bell size={18} />
+          <h2>עידכונים</h2>
+          {unreadTotal > 0 && (
+            <span className="unread-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+          )}
+        </div>
+        {renderUpdatesList()}
+      </aside>
 
       {lightbox && (
         <div className="lightbox" onClick={() => setLightbox(null)} role="presentation">

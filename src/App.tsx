@@ -39,6 +39,7 @@ export default function App() {
         tab={chat.tab}
         setTab={chat.setTab}
         conversations={chat.filteredConversations}
+        updates={chat.updates}
         activeId={chat.activeId}
         setActiveId={chat.setActiveId}
         activeConversation={chat.activeConversation}

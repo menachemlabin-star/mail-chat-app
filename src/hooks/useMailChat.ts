@@ -357,6 +357,31 @@ export function useMailChat() {
       );
   }, [conversations, messages, session, tab]);
 
+  const allConversations = useMemo(() => {
+    if (!session) return [];
+    return conversations
+      .filter((c) => c.members.includes(session.email))
+      .map((c) => {
+        const convMessages = messages
+          .filter((m) => m.conversationId === c.id)
+          .sort((a, b) => b.timestamp - a.timestamp);
+        const unreadCount = convMessages.filter(
+          (message) =>
+            message.senderEmail !== session.email && message.timestamp > c.lastReadAt,
+        ).length;
+        return { ...c, lastMessage: convMessages[0] ?? null, unreadCount };
+      })
+      .sort(
+        (a, b) =>
+          (b.lastMessage?.timestamp ?? b.createdAt) - (a.lastMessage?.timestamp ?? a.createdAt),
+      );
+  }, [conversations, messages, session]);
+
+  const updates = useMemo(
+    () => allConversations.filter((c) => c.unreadCount > 0),
+    [allConversations],
+  );
+
   const activeConversation = useMemo(
     () => conversations.find((c) => c.id === activeId) ?? null,
     [conversations, activeId],
@@ -535,6 +560,7 @@ export function useMailChat() {
     activeId,
     setActiveId,
     filteredConversations,
+    updates,
     activeConversation,
     activeMessages,
     onlineEmails,
