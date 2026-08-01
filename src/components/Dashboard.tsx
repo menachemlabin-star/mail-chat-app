@@ -628,13 +628,13 @@ export function Dashboard({
                 <div className="avatar" aria-hidden>
                   {initials(activeConversation.name)}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <h2>{activeConversation.name}</h2>
                   {activeConversation.type === 'private' ? (
                     <div className="status-row">
                       <span className={`dot ${peerOnline ? 'online' : ''}`} />
                       {peerOnline ? 'מחובר/ת עכשיו' : 'לא מחובר/ת'}
-                      {peerEmail && <span>· {peerEmail}</span>}
+                      {peerEmail && <span className="status-email">· {peerEmail}</span>}
                     </div>
                   ) : (
                     <div className="status-row">
@@ -643,6 +643,18 @@ export function Dashboard({
                   )}
                 </div>
               </div>
+              <button
+                type="button"
+                className="icon-btn mobile-chat-menu"
+                onClick={() => setNavOpen(true)}
+                aria-label="תפריט"
+                title="תפריט"
+              >
+                <Menu size={18} />
+                {unreadTotal > 0 && (
+                  <span className="mobile-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+                )}
+              </button>
               {activeConversation.type === 'group' && (
                 <div className="members-chip" title={activeConversation.members.join(', ')}>
                   <Users size={14} style={{ marginLeft: 6, verticalAlign: -2 }} />
@@ -736,7 +748,7 @@ export function Dashboard({
                 disabled={sending || (!draft.trim() && !imageFile)}
               >
                 <Send size={18} />
-                {sending ? 'שולח…' : 'שליחה'}
+                <span>{sending ? 'שולח…' : 'שליחה'}</span>
               </button>
             </div>
           </>
