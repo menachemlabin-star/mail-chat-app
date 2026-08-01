@@ -10,6 +10,7 @@ import {
   loadMessages,
   markConversationRead,
   deleteConversationForMe,
+  uploadChatImage,
   mapMessage,
 } from '../lib/api';
 import { supabase, supabaseUrl } from '../lib/supabase';
@@ -171,6 +172,7 @@ export function useMailChat() {
             sender_email: string;
             sender_name: string;
             body: string;
+            image_url?: string | null;
             created_at: string;
           };
 
@@ -459,27 +461,45 @@ export function useMailChat() {
   );
 
   const sendMessage = useCallback(
-    async (text: string) => {
-      if (!session || !activeId) return;
+    async (text: string, imageFile?: File | null) => {
+      if (!session || !activeId) return { ok: false as const, error: 'לא מחובר' };
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed && !imageFile) {
+        return { ok: false as const, error: 'נא לכתוב הודעה או לבחור תמונה' };
+      }
+
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        const uploaded = await uploadChatImage({
+          userId: session.id,
+          conversationId: activeId,
+          file: imageFile,
+        });
+        if (!uploaded.ok) {
+          setError(uploaded.error);
+          return uploaded;
+        }
+        imageUrl = uploaded.data;
+      }
 
       const result = await insertMessage({
         conversationId: activeId,
         senderEmail: session.email,
         senderName: session.displayName,
         text: trimmed,
+        imageUrl,
       });
 
       if (!result.ok) {
         setError(result.error);
-        return;
+        return result;
       }
 
       setMessages((prev) => {
         if (prev.some((m) => m.id === result.data.id)) return prev;
         return [...prev, result.data];
       });
+      return { ok: true as const };
     },
     [session, activeId],
   );

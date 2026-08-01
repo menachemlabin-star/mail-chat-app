@@ -73,9 +73,16 @@ create table if not exists public.messages (
   conversation_id uuid not null references public.conversations (id) on delete cascade,
   sender_email text not null,
   sender_name text not null,
-  body text not null,
+  body text not null default '',
+  image_url text,
   created_at timestamptz not null default now()
 );
+
+alter table public.messages
+  add column if not exists image_url text;
+
+alter table public.messages
+  alter column body set default '';
 
 create index if not exists messages_conversation_created_idx
   on public.messages (conversation_id, created_at);

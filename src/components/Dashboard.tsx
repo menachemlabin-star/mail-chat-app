@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ImagePlus,
   LogOut,
   Mail,
   MessageSquarePlus,
@@ -8,6 +9,7 @@ import {
   Trash2,
   Users,
   UsersRound,
+  X,
 } from 'lucide-react';
 import type { ActionResult, Conversation, ConversationType, Message, Session } from '../types';
 import { NewChatModal, NewGroupModal } from './Modals';
@@ -33,8 +35,15 @@ interface DashboardProps {
   onLogout: () => void | Promise<void>;
   onStartPrivate: (email: string) => Promise<ActionResult>;
   onCreateGroup: (name: string, emails: string[]) => Promise<ActionResult>;
-  onSend: (text: string) => void | Promise<void>;
+  onSend: (text: string, imageFile?: File | null) => Promise<ActionResult | void>;
   onDeleteConversation: (conversationId: string) => Promise<ActionResult>;
+}
+
+function messagePreview(message: Message | null) {
+  if (!message) return 'עדיין אין הודעות';
+  if (message.imageUrl && !message.text) return '📷 תמונה';
+  if (message.imageUrl) return `📷 ${message.text}`;
+  return message.text;
 }
 
 function initials(name: string) {
@@ -85,7 +94,12 @@ export function Dashboard({
     y: number;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -93,30 +107,70 @@ export function Dashboard({
 
   useEffect(() => {
     setDraft('');
+    setImageFile(null);
+    setImagePreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }, [activeId]);
 
   useEffect(() => {
     if (!contextMenu) return;
 
-    const close = () => setContextMenu(null);
+    const closeMenu = () => setContextMenu(null);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') closeMenu();
     };
 
-    window.addEventListener('click', close);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('click', closeMenu);
+    window.addEventListener('scroll', closeMenu, true);
     window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('click', closeMenu);
+      window.removeEventListener('scroll', closeMenu, true);
       window.removeEventListener('keydown', onKey);
     };
   }, [contextMenu]);
 
-  const send = () => {
-    if (!draft.trim()) return;
-    onSend(draft);
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightbox(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const pickImage = (file: File | null) => {
+    if (!file) {
+      clearImage();
+      return;
+    }
+    setImagePreview((current) => {
+      if (current) URL.revokeObjectURL(current);
+      return URL.createObjectURL(file);
+    });
+    setImageFile(file);
+  };
+
+  const send = async () => {
+    if ((!draft.trim() && !imageFile) || sending) return;
+    setSending(true);
+    const result = await onSend(draft, imageFile);
+    setSending(false);
+    if (result && !result.ok) return;
     setDraft('');
+    clearImage();
   };
 
   const deleteFromMenu = async () => {
@@ -248,7 +302,7 @@ export function Dashboard({
                   <div style={{ minWidth: 0 }}>
                     <div className="title">{c.name}</div>
                     <div className="preview">
-                      {c.lastMessage?.text ?? 'עדיין אין הודעות'}
+                      {messagePreview(c.lastMessage)}
                     </div>
                   </div>
                   <div className="conversation-meta">
@@ -334,14 +388,23 @@ export function Dashboard({
                 const mine = m.senderEmail === session.email;
                 return (
                   <div key={m.id} className={`message-row ${mine ? 'mine' : 'theirs'}`}>
-                    <div className="bubble">
+                    <div className={`bubble ${m.imageUrl ? 'has-image' : ''}`}>
                       {activeConversation.type === 'group' && !mine && (
                         <div className="sender">
                           {m.senderName}{' '}
                           <span className="sender-email">· {m.senderEmail}</span>
                         </div>
                       )}
-                      <p>{m.text}</p>
+                      {m.imageUrl && (
+                        <button
+                          type="button"
+                          className="message-image-btn"
+                          onClick={() => setLightbox(m.imageUrl)}
+                        >
+                          <img src={m.imageUrl} alt="תמונה שנשלחה" className="message-image" />
+                        </button>
+                      )}
+                      {m.text ? <p>{m.text}</p> : null}
                       <span className="timestamp">{formatTime(m.timestamp)}</span>
                     </div>
                   </div>
@@ -350,27 +413,78 @@ export function Dashboard({
               <div ref={bottomRef} />
             </div>
 
+            {imagePreview && (
+              <div className="composer-preview">
+                <img src={imagePreview} alt="תצוגה מקדימה" />
+                <button
+                  type="button"
+                  className="composer-preview-remove"
+                  onClick={clearImage}
+                  aria-label="הסרת תמונה"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
             <div className="composer">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                hidden
+                onChange={(e) => pickImage(e.target.files?.[0] ?? null)}
+              />
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => fileInputRef.current?.click()}
+                title="הוספת תמונה"
+                aria-label="הוספת תמונה"
+                disabled={sending}
+              >
+                <ImagePlus size={18} />
+              </button>
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    send();
+                    void send();
                   }
                 }}
                 placeholder="כתבו הודעה…"
                 aria-label="הודעה חדשה"
+                disabled={sending}
               />
-              <button className="btn btn-primary" type="button" onClick={send} disabled={!draft.trim()}>
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={() => void send()}
+                disabled={sending || (!draft.trim() && !imageFile)}
+              >
                 <Send size={18} />
-                שליחה
+                {sending ? 'שולח…' : 'שליחה'}
               </button>
             </div>
           </>
         )}
       </section>
+
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(null)} role="presentation">
+          <img src={lightbox} alt="תמונה מוגדלת" onClick={(e) => e.stopPropagation()} />
+          <button
+            type="button"
+            className="lightbox-close"
+            onClick={() => setLightbox(null)}
+            aria-label="סגירה"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      )}
 
       {modal === 'private' && (
         <NewChatModal

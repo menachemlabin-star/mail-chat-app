@@ -6,6 +6,7 @@ export interface Message {
   senderEmail: string;
   senderName: string;
   text: string;
+  imageUrl: string | null;
   timestamp: number;
 }
 

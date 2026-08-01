@@ -25,12 +25,17 @@ function mapError(error: { message?: string } | null, fallback: string) {
   return message || fallback;
 }
 
+function isMissingImageColumn(error: { message?: string } | null) {
+  return /image_url/i.test(error?.message ?? '');
+}
+
 function mapMessage(row: {
   id: string;
   conversation_id: string;
   sender_email: string;
   sender_name: string;
   body: string;
+  image_url?: string | null;
   created_at: string;
 }): Message {
   return {
@@ -38,7 +43,8 @@ function mapMessage(row: {
     conversationId: row.conversation_id,
     senderEmail: row.sender_email,
     senderName: row.sender_name,
-    text: row.body,
+    text: row.body ?? '',
+    imageUrl: row.image_url ?? null,
     timestamp: new Date(row.created_at).getTime(),
   };
 }
@@ -218,17 +224,31 @@ export async function loadConversationsForUser(email: string): Promise<Result<Co
 export async function loadMessages(conversationIds: string[]): Promise<Result<Message[]>> {
   if (conversationIds.length === 0) return { ok: true, data: [] };
 
-  const { data, error } = await supabase
+  const withImages = await supabase
     .from('messages')
-    .select('id, conversation_id, sender_email, sender_name, body, created_at')
+    .select('id, conversation_id, sender_email, sender_name, body, image_url, created_at')
     .in('conversation_id', conversationIds)
     .order('created_at', { ascending: true });
 
-  if (error) {
-    return { ok: false, error: mapError(error, 'שגיאה בטעינת הודעות') };
+  if (withImages.error) {
+    if (!isMissingImageColumn(withImages.error)) {
+      return { ok: false, error: mapError(withImages.error, 'שגיאה בטעינת הודעות') };
+    }
+
+    const legacy = await supabase
+      .from('messages')
+      .select('id, conversation_id, sender_email, sender_name, body, created_at')
+      .in('conversation_id', conversationIds)
+      .order('created_at', { ascending: true });
+
+    if (legacy.error) {
+      return { ok: false, error: mapError(legacy.error, 'שגיאה בטעינת הודעות') };
+    }
+
+    return { ok: true, data: (legacy.data ?? []).map(mapMessage) };
   }
 
-  return { ok: true, data: (data ?? []).map(mapMessage) };
+  return { ok: true, data: (withImages.data ?? []).map(mapMessage) };
 }
 
 export async function createPrivateConversation(input: {
@@ -440,28 +460,109 @@ export async function deleteConversationForMe(
   return { ok: true, data: true };
 }
 
+export async function uploadChatImage(input: {
+  userId: string;
+  conversationId: string;
+  file: File;
+}): Promise<Result<string>> {
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowed.includes(input.file.type)) {
+    return { ok: false, error: 'ניתן לשלוח רק תמונות (JPG, PNG, GIF, WEBP)' };
+  }
+  if (input.file.size > 5 * 1024 * 1024) {
+    return { ok: false, error: 'התמונה גדולה מדי. הגודל המרבי הוא 5MB' };
+  }
+
+  const ext = input.file.name.split('.').pop()?.toLowerCase() || 'jpg';
+  const path = `${input.userId}/${input.conversationId}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('chat-images')
+    .upload(path, input.file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: input.file.type,
+    });
+
+  if (uploadError) {
+    return {
+      ok: false,
+      error: mapError(
+        uploadError,
+        'העלאת התמונה נכשלה. ודאו שהרצתם את chat-images.sql ב-Supabase.',
+      ),
+    };
+  }
+
+  const { data } = supabase.storage.from('chat-images').getPublicUrl(path);
+  return { ok: true, data: data.publicUrl };
+}
+
 export async function insertMessage(input: {
   conversationId: string;
   senderEmail: string;
   senderName: string;
   text: string;
+  imageUrl?: string | null;
 }): Promise<Result<Message>> {
-  const { data, error } = await supabase
-    .from('messages')
-    .insert({
-      conversation_id: input.conversationId,
-      sender_email: input.senderEmail.toLowerCase(),
-      sender_name: input.senderName,
-      body: input.text.trim(),
-    })
-    .select('id, conversation_id, sender_email, sender_name, body, created_at')
-    .single();
+  const body = input.text.trim();
+  const imageUrl = input.imageUrl?.trim() || null;
 
-  if (error || !data) {
-    return { ok: false, error: mapError(error, 'שליחת ההודעה נכשלה') };
+  if (!body && !imageUrl) {
+    return { ok: false, error: 'נא לכתוב הודעה או לבחור תמונה' };
   }
 
-  return { ok: true, data: mapMessage(data) };
+  const payload = {
+    conversation_id: input.conversationId,
+    sender_email: input.senderEmail.toLowerCase(),
+    sender_name: input.senderName,
+    body,
+    image_url: imageUrl,
+  };
+
+  const withImage = await supabase
+    .from('messages')
+    .insert(payload)
+    .select('id, conversation_id, sender_email, sender_name, body, image_url, created_at')
+    .single();
+
+  if (withImage.error) {
+    if (!isMissingImageColumn(withImage.error)) {
+      return { ok: false, error: mapError(withImage.error, 'שליחת ההודעה נכשלה') };
+    }
+
+    if (imageUrl) {
+      return {
+        ok: false,
+        error: 'שליחת תמונות דורשת הרצת chat-images.sql ב-Supabase.',
+      };
+    }
+
+    const legacy = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: input.conversationId,
+        sender_email: input.senderEmail.toLowerCase(),
+        sender_name: input.senderName,
+        body,
+      })
+      .select('id, conversation_id, sender_email, sender_name, body, created_at')
+      .single();
+
+    if (legacy.error || !legacy.data) {
+      return { ok: false, error: mapError(legacy.error, 'שליחת ההודעה נכשלה') };
+    }
+
+    return { ok: true, data: mapMessage(legacy.data) };
+  }
+
+  if (!withImage.data) {
+    return { ok: false, error: 'שליחת ההודעה נכשלה' };
+  }
+
+  return { ok: true, data: mapMessage(withImage.data) };
 }
 
 export { mapMessage };
