@@ -1137,10 +1137,10 @@ button:disabled {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
     flex-shrink: 0;
-    padding: 10px 12px;
-    padding-top: max(10px, env(safe-area-inset-top));
+    padding: 14px 16px;
+    padding-top: max(14px, env(safe-area-inset-top));
     background: #fff;
     border-bottom: 1px solid var(--line);
     z-index: 30;
@@ -1151,7 +1151,8 @@ button:disabled {
   }
 
   .mobile-brand {
-    font-size: 0.92rem;
+    font-size: 1.12rem;
+    font-weight: 800;
     letter-spacing: -0.02em;
     text-align: center;
     flex: 1;
@@ -1169,24 +1170,37 @@ button:disabled {
   .mobile-plus-wrap .action-menu {
     left: 0;
     right: auto;
+    min-width: 210px;
+  }
+
+  .mobile-plus-wrap .action-menu button {
+    padding: 14px 16px;
+    font-size: 1rem;
   }
 
   .mobile-badge {
     position: absolute;
-    top: -4px;
-    left: -4px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    top: -5px;
+    left: -5px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
     border-radius: 999px;
     background: var(--danger);
     color: white;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     font-weight: 800;
     display: grid;
     place-items: center;
     line-height: 1;
     pointer-events: none;
+  }
+
+  .mobile-topbar .icon-btn,
+  .icon-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
   }
 
   .mobile-topbar .icon-btn {
@@ -1210,7 +1224,7 @@ button:disabled {
     top: 0;
     right: 0;
     bottom: 0;
-    width: min(86vw, 320px);
+    width: min(88vw, 340px);
     max-width: 100%;
     background: linear-gradient(180deg, #fff 0%, #f4faf8 100%);
     box-shadow: -12px 0 40px rgba(15, 40, 35, 0.18);
@@ -1226,16 +1240,31 @@ button:disabled {
   .mobile-drawer-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 18px 16px;
+    gap: 14px;
+    padding: 20px 18px;
     border-bottom: 1px solid var(--line);
+  }
+
+  .mobile-drawer-header .avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    font-size: 1.05rem;
+  }
+
+  .mobile-drawer-header .profile-meta strong {
+    font-size: 1.1rem;
+  }
+
+  .mobile-drawer-header .profile-meta span {
+    font-size: 0.9rem;
   }
 
   .mobile-drawer-nav {
     display: flex;
     flex-direction: column;
-    padding: 12px;
-    gap: 6px;
+    padding: 14px;
+    gap: 8px;
     flex: 1;
     overflow: auto;
   }
@@ -1243,14 +1272,15 @@ button:disabled {
   .mobile-drawer-nav button {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     width: 100%;
-    padding: 14px;
+    padding: 16px;
     border: none;
-    border-radius: 14px;
+    border-radius: 16px;
     background: transparent;
     color: var(--ink);
     font: inherit;
+    font-size: 1.05rem;
     font-weight: 650;
     text-align: right;
   }
@@ -1267,14 +1297,15 @@ button:disabled {
   .mobile-drawer-logout {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin: 8px 12px 0;
-    padding: 14px;
+    gap: 14px;
+    margin: 8px 14px 0;
+    padding: 16px;
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: 16px;
     background: white;
     color: var(--danger);
     font: inherit;
+    font-size: 1.05rem;
     font-weight: 700;
   }
 
@@ -1295,14 +1326,22 @@ button:disabled {
   .mobile-section-title {
     display: block;
     flex-shrink: 0;
-    padding: 14px 16px 10px;
+    padding: 18px 18px 12px;
     border-bottom: 1px solid var(--line);
     background: rgba(255, 255, 255, 0.9);
   }
 
   .mobile-section-title h2 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 1.25rem;
+  }
+
+  .panel-heading {
+    padding: 18px 16px;
+  }
+
+  .panel-heading h2 {
+    font-size: 1.2rem;
   }
 
   .mobile-back {
@@ -1322,9 +1361,9 @@ button:disabled {
   }
 
   .chat-header {
-    gap: 8px;
-    padding: 10px 12px;
-    padding-top: max(10px, env(safe-area-inset-top));
+    gap: 10px;
+    padding: 14px;
+    padding-top: max(14px, env(safe-area-inset-top));
     flex-shrink: 0;
   }
 
@@ -1333,15 +1372,22 @@ button:disabled {
     flex: 1;
   }
 
-  .chat-header h2 {
+  .chat-header .avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
     font-size: 1rem;
+  }
+
+  .chat-header h2 {
+    font-size: 1.15rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .status-row {
-    font-size: 0.75rem;
+    font-size: 0.88rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1360,18 +1406,40 @@ button:disabled {
     min-height: 0;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 12px;
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .bubble {
+    max-width: 90%;
+    padding: 12px 14px;
+    font-size: 1.05rem;
+    border-radius: 18px;
+  }
+
+  .timestamp {
+    font-size: 0.78rem;
+    margin-top: 8px;
   }
 
   .composer {
     flex-shrink: 0;
-    padding: 10px 12px;
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
-    gap: 8px;
+    padding: 12px 14px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+
+  .composer input {
+    padding: 14px 16px;
+    font-size: 1.05rem;
+    border-radius: 14px;
+    min-height: 48px;
   }
 
   .composer .btn-primary {
-    padding-inline: 14px;
+    padding-inline: 16px;
+    min-height: 48px;
+    border-radius: 14px;
   }
 
   .composer .btn-primary span {
@@ -1379,12 +1447,66 @@ button:disabled {
   }
 
   .message-image {
-    max-width: min(240px, 72vw);
-    max-height: 260px;
+    max-width: min(280px, 78vw);
+    max-height: 300px;
   }
 
-  .bubble {
-    max-width: 88%;
+  .conversation-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 12px 20px;
+  }
+
+  .conversation-item {
+    gap: 12px;
+    padding: 16px 12px;
+    border-radius: 16px;
+  }
+
+  .conversation-item .title {
+    font-size: 1.08rem;
+  }
+
+  .conversation-item .preview {
+    font-size: 0.95rem;
+    margin-top: 3px;
+  }
+
+  .conversation-item .time {
+    font-size: 0.85rem;
+  }
+
+  .avatar.sm,
+  .conversation-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .avatar.sm {
+    font-size: 0.95rem;
+  }
+
+  .announcement-item {
+    gap: 14px;
+    padding: 16px 14px;
+  }
+
+  .announcement-body {
+    font-size: 1.02rem;
+    line-height: 1.5;
+  }
+
+  .empty-list {
+    padding: 48px 24px;
+    font-size: 1.05rem;
+  }
+
+  .empty-list svg {
+    width: 36px;
+    height: 36px;
   }
 
   .dashboard.mobile-pane-updates .mobile-updates {
@@ -1400,13 +1522,6 @@ button:disabled {
   .dashboard.mobile-pane-chat .chat-panel {
     display: flex;
     flex-direction: column;
-  }
-
-  .conversation-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
   }
 }
 
