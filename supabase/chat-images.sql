@@ -28,6 +28,12 @@ on storage.objects for select
 to public
 using (bucket_id = 'chat-images');
 
+drop policy if exists "chat_images_select_authenticated" on storage.objects;
+create policy "chat_images_select_authenticated"
+on storage.objects for select
+to authenticated
+using (bucket_id = 'chat-images');
+
 drop policy if exists "chat_images_insert" on storage.objects;
 create policy "chat_images_insert"
 on storage.objects for insert

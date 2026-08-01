@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import type { ActionResult, Conversation, ConversationType, Message, Session } from '../types';
+import { ChatImage } from './ChatImage';
 import { NewChatModal, NewGroupModal } from './Modals';
 
 interface ConversationRow extends Conversation {
@@ -41,8 +42,8 @@ interface DashboardProps {
 
 function messagePreview(message: Message | null) {
   if (!message) return 'עדיין אין הודעות';
-  if (message.imageUrl && !message.text) return '📷 תמונה';
-  if (message.imageUrl) return `📷 ${message.text}`;
+  if (message.imageUrl && !message.text) return 'תמונה';
+  if (message.imageUrl) return message.text;
   return message.text;
 }
 
@@ -296,9 +297,15 @@ export function Dashboard({
                     });
                   }}
                 >
-                  <div className="avatar sm" aria-hidden>
-                    {initials(c.name)}
-                  </div>
+                  {c.lastMessage?.imageUrl ? (
+                    <div className="conversation-thumb">
+                      <ChatImage src={c.lastMessage.imageUrl} className="conversation-thumb-img" />
+                    </div>
+                  ) : (
+                    <div className="avatar sm" aria-hidden>
+                      {initials(c.name)}
+                    </div>
+                  )}
                   <div style={{ minWidth: 0 }}>
                     <div className="title">{c.name}</div>
                     <div className="preview">
@@ -396,13 +403,13 @@ export function Dashboard({
                         </div>
                       )}
                       {m.imageUrl && (
-                        <button
-                          type="button"
-                          className="message-image-btn"
-                          onClick={() => setLightbox(m.imageUrl)}
-                        >
-                          <img src={m.imageUrl} alt="תמונה שנשלחה" className="message-image" />
-                        </button>
+                        <ChatImage
+                          src={m.imageUrl}
+                          className="message-image"
+                          onClick={() => {
+                            if (m.imageUrl) setLightbox(m.imageUrl);
+                          }}
+                        />
                       )}
                       {m.text ? <p>{m.text}</p> : null}
                       <span className="timestamp">{formatTime(m.timestamp)}</span>
@@ -474,7 +481,7 @@ export function Dashboard({
 
       {lightbox && (
         <div className="lightbox" onClick={() => setLightbox(null)} role="presentation">
-          <img src={lightbox} alt="תמונה מוגדלת" onClick={(e) => e.stopPropagation()} />
+          <ChatImage src={lightbox} className="lightbox-image" />
           <button
             type="button"
             className="lightbox-close"

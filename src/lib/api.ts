@@ -496,8 +496,38 @@ export async function uploadChatImage(input: {
     };
   }
 
+  // Prefer a long-lived signed URL so images work even if the bucket is private.
+  const signed = await supabase.storage.from('chat-images').createSignedUrl(path, 60 * 60 * 24 * 365);
+  if (!signed.error && signed.data?.signedUrl) {
+    return { ok: true, data: signed.data.signedUrl };
+  }
+
   const { data } = supabase.storage.from('chat-images').getPublicUrl(path);
   return { ok: true, data: data.publicUrl };
+}
+
+export async function resolveChatImageUrl(imageUrlOrPath: string): Promise<string> {
+  const value = imageUrlOrPath.trim();
+  if (!value) return value;
+
+  let path = value;
+  const marker = '/storage/v1/object/public/chat-images/';
+  const signedMarker = '/storage/v1/object/sign/chat-images/';
+
+  if (value.includes(marker)) {
+    path = decodeURIComponent(value.split(marker)[1]?.split('?')[0] ?? value);
+  } else if (value.includes(signedMarker)) {
+    path = decodeURIComponent(value.split(signedMarker)[1]?.split('?')[0] ?? value);
+  } else if (value.startsWith('http')) {
+    return value;
+  }
+
+  const signed = await supabase.storage.from('chat-images').createSignedUrl(path, 60 * 60 * 24 * 7);
+  if (!signed.error && signed.data?.signedUrl) {
+    return signed.data.signedUrl;
+  }
+
+  return supabase.storage.from('chat-images').getPublicUrl(path).data.publicUrl;
 }
 
 export async function insertMessage(input: {
