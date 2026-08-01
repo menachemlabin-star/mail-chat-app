@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Conversation, ConversationType, Message, Session } from '../types';
+import type { Announcement, Conversation, ConversationType, Message, Session } from '../types';
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -595,4 +595,65 @@ export async function insertMessage(input: {
   return { ok: true, data: mapMessage(withImage.data) };
 }
 
-export { mapMessage };
+function mapAnnouncement(row: {
+  id: string;
+  author_id: string | null;
+  author_email: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+}): Announcement {
+  return {
+    id: row.id,
+    authorId: row.author_id,
+    authorEmail: row.author_email,
+    authorName: row.author_name,
+    body: row.body,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+export async function loadAnnouncements(): Promise<Result<Announcement[]>> {
+  const { data, error } = await supabase
+    .from('announcements')
+    .select('id, author_id, author_email, author_name, body, created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    return { ok: false, error: mapError(error, 'טעינת העידכונים נכשלה') };
+  }
+
+  return { ok: true, data: (data ?? []).map(mapAnnouncement) };
+}
+
+export async function createAnnouncement(input: {
+  userId: string;
+  email: string;
+  displayName: string;
+  body: string;
+}): Promise<Result<Announcement>> {
+  const body = input.body.trim();
+  if (!body) {
+    return { ok: false, error: 'נא לכתוב תוכן לעידכון' };
+  }
+
+  const { data, error } = await supabase
+    .from('announcements')
+    .insert({
+      author_id: input.userId,
+      author_email: input.email.toLowerCase(),
+      author_name: input.displayName,
+      body,
+    })
+    .select('id, author_id, author_email, author_name, body, created_at')
+    .single();
+
+  if (error || !data) {
+    return { ok: false, error: mapError(error, 'פרסום העידכון נכשל') };
+  }
+
+  return { ok: true, data: mapAnnouncement(data) };
+}
+
+export { mapMessage, mapAnnouncement };

@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Conversation, ConversationType, Message, Session } from '../types';
+import type { Announcement, Conversation, ConversationType, Message, Session } from '../types';
 import {
+  createAnnouncement,
   createGroupConversation,
   createPrivateConversation,
   ensureProfile,
   findProfileByEmail,
   insertMessage,
+  loadAnnouncements,
   loadConversationsForUser,
   loadMessages,
   markConversationRead,
   deleteConversationForMe,
   uploadChatImage,
+  mapAnnouncement,
   mapMessage,
 } from '../lib/api';
 import { supabase, supabaseUrl } from '../lib/supabase';
@@ -58,6 +61,7 @@ export function useMailChat() {
   const [dataLoading, setDataLoading] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<ConversationType>('private');
   const [onlineEmails, setOnlineEmails] = useState<Set<string>>(new Set());
@@ -68,7 +72,11 @@ export function useMailChat() {
     setDataLoading(true);
     setError(null);
 
-    const convResult = await loadConversationsForUser(email);
+    const [convResult, announcementsResult] = await Promise.all([
+      loadConversationsForUser(email),
+      loadAnnouncements(),
+    ]);
+
     if (!convResult.ok) {
       setError(convResult.error);
       setDataLoading(false);
@@ -76,6 +84,13 @@ export function useMailChat() {
     }
 
     setConversations(convResult.data);
+
+    if (announcementsResult.ok) {
+      setAnnouncements(announcementsResult.data);
+    } else {
+      setAnnouncements([]);
+    }
+
     const msgResult = await loadMessages(convResult.data.map((c) => c.id));
     if (!msgResult.ok) {
       setError(msgResult.error);
@@ -130,6 +145,7 @@ export function useMailChat() {
           setPasswordRecovery(false);
           setConversations([]);
           setMessages([]);
+          setAnnouncements([]);
           setActiveId(null);
           setAuthLoading(false);
           return;
@@ -212,6 +228,24 @@ export function useMailChat() {
               return incoming.id;
             });
           })();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'announcements' },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            author_id: string | null;
+            author_email: string;
+            author_name: string;
+            body: string;
+            created_at: string;
+          };
+          setAnnouncements((prev) => {
+            if (prev.some((item) => item.id === row.id)) return prev;
+            return [mapAnnouncement(row), ...prev];
+          });
         },
       )
       .subscribe();
@@ -334,6 +368,7 @@ export function useMailChat() {
     setPasswordRecovery(false);
     setConversations([]);
     setMessages([]);
+    setAnnouncements([]);
     setActiveId(null);
   }, []);
 
@@ -380,6 +415,11 @@ export function useMailChat() {
   const updates = useMemo(
     () => allConversations.filter((c) => c.unreadCount > 0),
     [allConversations],
+  );
+
+  const unreadTotal = useMemo(
+    () => updates.reduce((sum, c) => sum + c.unreadCount, 0),
+    [updates],
   );
 
   const activeConversation = useMemo(
@@ -544,6 +584,28 @@ export function useMailChat() {
     [session],
   );
 
+  const postAnnouncement = useCallback(
+    async (body: string) => {
+      if (!session) return { ok: false as const, error: 'לא מחובר' };
+
+      const result = await createAnnouncement({
+        userId: session.id,
+        email: session.email,
+        displayName: session.displayName,
+        body,
+      });
+
+      if (!result.ok) return result;
+
+      setAnnouncements((prev) => {
+        if (prev.some((item) => item.id === result.data.id)) return prev;
+        return [result.data, ...prev];
+      });
+      return { ok: true as const };
+    },
+    [session],
+  );
+
   const peerEmail = useMemo(() => {
     if (!session || !activeConversation || activeConversation.type !== 'private') return null;
     return activeConversation.members.find((m) => m !== session.email) ?? null;
@@ -560,7 +622,8 @@ export function useMailChat() {
     activeId,
     setActiveId,
     filteredConversations,
-    updates,
+    announcements,
+    unreadTotal,
     activeConversation,
     activeMessages,
     onlineEmails,
@@ -574,5 +637,6 @@ export function useMailChat() {
     createGroup,
     sendMessage,
     deleteConversation,
+    postAnnouncement,
   };
 }

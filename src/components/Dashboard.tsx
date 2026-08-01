@@ -14,9 +14,9 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
-import type { ActionResult, Conversation, ConversationType, Message, Session } from '../types';
+import type { ActionResult, Announcement, Conversation, ConversationType, Message, Session } from '../types';
 import { ChatImage } from './ChatImage';
-import { NewChatModal, NewGroupModal } from './Modals';
+import { NewAnnouncementModal, NewChatModal, NewGroupModal } from './Modals';
 
 interface ConversationRow extends Conversation {
   lastMessage: Message | null;
@@ -30,7 +30,8 @@ interface DashboardProps {
   tab: ConversationType;
   setTab: (tab: ConversationType) => void;
   conversations: ConversationRow[];
-  updates: ConversationRow[];
+  announcements: Announcement[];
+  unreadTotal: number;
   activeId: string | null;
   setActiveId: (id: string | null) => void;
   activeConversation: Conversation | null;
@@ -44,6 +45,7 @@ interface DashboardProps {
   onCreateGroup: (name: string, emails: string[]) => Promise<ActionResult>;
   onSend: (text: string, imageFile?: File | null) => Promise<ActionResult | void>;
   onDeleteConversation: (conversationId: string) => Promise<ActionResult>;
+  onPostAnnouncement: (body: string) => Promise<ActionResult>;
 }
 
 function messagePreview(message: Message | null) {
@@ -78,7 +80,8 @@ export function Dashboard({
   tab,
   setTab,
   conversations,
-  updates,
+  announcements,
+  unreadTotal,
   activeId,
   setActiveId,
   activeConversation,
@@ -92,11 +95,12 @@ export function Dashboard({
   onCreateGroup,
   onSend,
   onDeleteConversation,
+  onPostAnnouncement,
 }: DashboardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [mobilePane, setMobilePane] = useState<MobilePane>('chats');
-  const [modal, setModal] = useState<'private' | 'group' | null>(null);
+  const [modal, setModal] = useState<'private' | 'group' | 'announcement' | null>(null);
   const [draft, setDraft] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     conversationId: string;
@@ -247,51 +251,45 @@ export function Dashboard({
   };
 
   const peerOnline = peerEmail ? onlineEmails.has(peerEmail) : false;
-  const unreadTotal = updates.reduce((sum, c) => sum + c.unreadCount, 0);
 
   const renderUpdatesList = () => (
     <ul className="conversation-list updates-list">
-      {updates.length === 0 ? (
+      {announcements.length === 0 ? (
         <li className="empty-list">
           <Bell size={28} />
-          <p>אין עידכונים חדשים</p>
+          <p>אין עידכונים עדיין. לחצו + כדי לפרסם לכלם.</p>
         </li>
       ) : (
-        updates.map((c) => (
-          <li key={c.id}>
-            <button
-              type="button"
-              className={`conversation-item ${activeId === c.id ? 'active' : ''}`}
-              onClick={() => openConversation(c.id, c.type)}
-            >
-              {c.lastMessage?.imageUrl ? (
-                <div className="conversation-thumb">
-                  <ChatImage src={c.lastMessage.imageUrl} className="conversation-thumb-img" />
-                </div>
-              ) : (
-                <div className="avatar sm" aria-hidden>
-                  {initials(c.name)}
-                </div>
-              )}
-              <div style={{ minWidth: 0 }}>
-                <div className="title">{c.name}</div>
-                <div className="preview">{messagePreview(c.lastMessage)}</div>
-              </div>
-              <div className="conversation-meta">
-                <span className="time">
-                  {c.lastMessage ? formatTime(c.lastMessage.timestamp) : ''}
-                </span>
-                {c.unreadCount > 0 && (
-                  <span className="unread-badge" aria-label={`${c.unreadCount} הודעות שלא נקראו`}>
-                    {c.unreadCount > 99 ? '99+' : c.unreadCount}
-                  </span>
-                )}
-              </div>
-            </button>
+        announcements.map((item) => (
+          <li key={item.id} className="announcement-item">
+            <div className="avatar sm" aria-hidden>
+              {initials(item.authorName)}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="title">{item.authorName}</div>
+              <div className="announcement-body">{item.body}</div>
+              <div className="preview">{formatTime(item.createdAt)}</div>
+            </div>
           </li>
         ))
       )}
     </ul>
+  );
+
+  const renderUpdatesHeading = () => (
+    <div className="panel-heading">
+      <Bell size={18} />
+      <h2>עידכונים</h2>
+      <button
+        type="button"
+        className="icon-btn primary"
+        onClick={() => setModal('announcement')}
+        aria-label="הוספת עידכון"
+        title="הוספת עידכון"
+      >
+        <Plus size={18} />
+      </button>
+    </div>
   );
 
   return (
@@ -386,11 +384,6 @@ export function Dashboard({
           >
             <Bell size={18} />
             עידכונים
-            {unreadTotal > 0 && (
-              <span className="unread-badge drawer-badge">
-                {unreadTotal > 99 ? '99+' : unreadTotal}
-              </span>
-            )}
           </button>
           <button
             type="button"
@@ -756,24 +749,12 @@ export function Dashboard({
       </section>
 
       <aside className="updates-panel panel-card">
-        <div className="panel-heading">
-          <Bell size={18} />
-          <h2>עידכונים</h2>
-          {unreadTotal > 0 && (
-            <span className="unread-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
-          )}
-        </div>
+        {renderUpdatesHeading()}
         {renderUpdatesList()}
       </aside>
 
       <aside className="mobile-updates panel-card">
-        <div className="panel-heading">
-          <Bell size={18} />
-          <h2>עידכונים</h2>
-          {unreadTotal > 0 && (
-            <span className="unread-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
-          )}
-        </div>
+        {renderUpdatesHeading()}
         {renderUpdatesList()}
       </aside>
 
@@ -803,6 +784,12 @@ export function Dashboard({
           onClose={() => setModal(null)}
           onSubmit={onCreateGroup}
           currentEmail={session.email}
+        />
+      )}
+      {modal === 'announcement' && (
+        <NewAnnouncementModal
+          onClose={() => setModal(null)}
+          onSubmit={onPostAnnouncement}
         />
       )}
     </div>

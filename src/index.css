@@ -199,8 +199,10 @@ button:disabled {
 }
 
 .field input,
+.field textarea,
 .composer input,
-.modal input {
+.modal input,
+.modal textarea {
   width: 100%;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.9);
@@ -209,11 +211,15 @@ button:disabled {
   color: var(--ink);
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  resize: vertical;
+  font: inherit;
 }
 
 .field input:focus,
+.field textarea:focus,
 .composer input:focus,
-.modal input:focus {
+.modal input:focus,
+.modal textarea:focus {
   border-color: rgba(15, 118, 110, 0.45);
   box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.12);
 }
@@ -453,6 +459,24 @@ button:disabled {
   margin: 0;
   font-size: 1.05rem;
   flex: 1;
+}
+
+.announcement-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  align-items: start;
+}
+
+.announcement-body {
+  margin: 4px 0 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .mobile-topbar,

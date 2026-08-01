@@ -25,4 +25,13 @@ export interface Session {
   displayName: string;
 }
 
+export interface Announcement {
+  id: string;
+  authorId: string | null;
+  authorEmail: string;
+  authorName: string;
+  body: string;
+  createdAt: number;
+}
+
 export type ActionResult = { ok: true } | { ok: false; error: string };
