@@ -421,10 +421,18 @@ button:disabled {
 .dashboard {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(220px, 22%) 1fr minmax(170px, 15%) minmax(170px, 15%);
+  grid-template-columns: minmax(240px, 26%) 1fr minmax(220px, 22%);
   gap: 16px;
   padding: 16px;
   animation: fade-in 0.45s ease;
+}
+
+.side-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panel-card,
@@ -438,6 +446,11 @@ button:disabled {
   box-shadow: var(--shadow);
   overflow: hidden;
   min-height: 0;
+}
+
+.side-stack .bulletin-panel,
+.side-stack .updates-panel {
+  flex: 1;
 }
 
 .updates-panel,
@@ -1129,6 +1142,10 @@ button:disabled {
   }
 
   .desktop-only {
+    display: none !important;
+  }
+
+  .side-stack {
     display: none !important;
   }
 

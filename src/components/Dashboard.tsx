@@ -808,15 +808,16 @@ export function Dashboard({
         )}
       </section>
 
-      <aside className="updates-panel panel-card">
-        {renderUpdatesHeading()}
-        {renderUpdatesList()}
-      </aside>
-
-      <aside className="bulletin-panel panel-card">
-        {renderBulletinHeading()}
-        {renderBulletinList()}
-      </aside>
+      <div className="side-stack">
+        <aside className="bulletin-panel panel-card">
+          {renderBulletinHeading()}
+          {renderBulletinList()}
+        </aside>
+        <aside className="updates-panel panel-card">
+          {renderUpdatesHeading()}
+          {renderUpdatesList()}
+        </aside>
+      </div>
 
       <aside className="mobile-updates panel-card">
         {renderUpdatesHeading()}
