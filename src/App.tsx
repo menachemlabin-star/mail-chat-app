@@ -56,6 +56,7 @@ export default function App() {
         onSend={chat.sendMessage}
         onDeleteConversation={chat.deleteConversation}
         onPostAnnouncement={chat.postAnnouncement}
+        onDeleteAnnouncement={chat.removeAnnouncement}
         onPostBulletin={chat.postBulletin}
         onDeleteBulletin={chat.removeBulletin}
       />

@@ -5,6 +5,7 @@ import {
   createBulletinPost,
   createGroupConversation,
   createPrivateConversation,
+  deleteAnnouncement,
   deleteBulletinPost,
   ensureProfile,
   findProfileByEmail,
@@ -260,6 +261,15 @@ export function useMailChat() {
             if (prev.some((item) => item.id === row.id)) return prev;
             return [mapAnnouncement(row), ...prev];
           });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'announcements' },
+        (payload) => {
+          const row = payload.old as { id?: string };
+          if (!row.id) return;
+          setAnnouncements((prev) => prev.filter((item) => item.id !== row.id));
         },
       )
       .on(
@@ -652,6 +662,26 @@ export function useMailChat() {
     [session],
   );
 
+  const removeAnnouncement = useCallback(
+    async (announcementId: string) => {
+      if (!session) return { ok: false as const, error: 'לא מחובר' };
+
+      const target = announcements.find((item) => item.id === announcementId);
+      if (!target) return { ok: false as const, error: 'העידכון לא נמצא' };
+
+      const result = await deleteAnnouncement({
+        announcementId,
+        email: session.email,
+        authorEmail: target.authorEmail,
+      });
+      if (!result.ok) return result;
+
+      setAnnouncements((prev) => prev.filter((item) => item.id !== announcementId));
+      return { ok: true as const };
+    },
+    [session, announcements],
+  );
+
   const postBulletin = useCallback(
     async (input: {
       body: string;
@@ -756,6 +786,7 @@ export function useMailChat() {
     sendMessage,
     deleteConversation,
     postAnnouncement,
+    removeAnnouncement,
     postBulletin,
     removeBulletin,
   };

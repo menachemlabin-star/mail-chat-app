@@ -18,7 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import type { ActionResult, Announcement, BulletinPost, Conversation, ConversationType, Message, Session } from '../types';
-import { isBulletinAdmin } from '../lib/constants';
+import { canDeleteAnnouncement, isBulletinAdmin } from '../lib/constants';
 import { ChatImage } from './ChatImage';
 import { NewAnnouncementModal, NewBulletinModal, NewChatModal, NewGroupModal } from './Modals';
 
@@ -51,6 +51,7 @@ interface DashboardProps {
   onSend: (text: string, imageFile?: File | null) => Promise<ActionResult | void>;
   onDeleteConversation: (conversationId: string) => Promise<ActionResult>;
   onPostAnnouncement: (body: string) => Promise<ActionResult>;
+  onDeleteAnnouncement: (announcementId: string) => Promise<ActionResult>;
   onPostBulletin: (input: {
     body: string;
     imageFile?: File | null;
@@ -86,6 +87,14 @@ function formatTime(ts: number) {
   return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' });
 }
 
+function formatDate(ts: number) {
+  return new Date(ts).toLocaleDateString('he-IL', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export function Dashboard({
   session,
   tab,
@@ -108,6 +117,7 @@ export function Dashboard({
   onSend,
   onDeleteConversation,
   onPostAnnouncement,
+  onDeleteAnnouncement,
   onPostBulletin,
   onDeleteBulletin,
 }: DashboardProps) {
@@ -266,6 +276,17 @@ export function Dashboard({
 
   const peerOnline = peerEmail ? onlineEmails.has(peerEmail) : false;
   const canPostBulletin = isBulletinAdmin(session.email);
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<string | null>(null);
+
+  const deleteAnnouncementItem = async (id: string) => {
+    if (deletingAnnouncementId) return;
+    const confirmed = window.confirm('למחוק את העידכון?');
+    if (!confirmed) return;
+    setDeletingAnnouncementId(id);
+    const result = await onDeleteAnnouncement(id);
+    setDeletingAnnouncementId(null);
+    if (!result.ok) window.alert(result.error);
+  };
 
   const renderUpdatesList = () => (
     <ul className="conversation-list updates-list">
@@ -275,18 +296,33 @@ export function Dashboard({
           <p>אין עידכונים עדיין. לחצו + כדי לפרסם לכלם.</p>
         </li>
       ) : (
-        announcements.map((item) => (
-          <li key={item.id} className="announcement-item">
-            <div className="avatar sm" aria-hidden>
-              {initials(item.authorName)}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div className="title">{item.authorName}</div>
-              <div className="announcement-body">{item.body}</div>
-              <div className="preview">{formatTime(item.createdAt)}</div>
-            </div>
-          </li>
-        ))
+        announcements.map((item) => {
+          const canDelete = canDeleteAnnouncement(session.email, item.authorEmail);
+          return (
+            <li key={item.id} className="announcement-item">
+              <div className="avatar sm" aria-hidden>
+                {initials(item.authorName)}
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div className="title">{item.authorName}</div>
+                <div className="announcement-body">{item.body}</div>
+                <div className="announcement-date">{formatDate(item.createdAt)}</div>
+              </div>
+              {canDelete && (
+                <button
+                  type="button"
+                  className="icon-btn announcement-delete"
+                  onClick={() => void deleteAnnouncementItem(item.id)}
+                  disabled={deletingAnnouncementId === item.id}
+                  aria-label="מחיקת עידכון"
+                  title="מחיקת עידכון"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </li>
+          );
+        })
       )}
     </ul>
   );

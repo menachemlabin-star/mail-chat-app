@@ -33,11 +33,15 @@ create policy "announcements_insert_authenticated"
   );
 
 drop policy if exists "announcements_delete_own" on public.announcements;
-create policy "announcements_delete_own"
+drop policy if exists "announcements_delete_author_or_admin" on public.announcements;
+create policy "announcements_delete_author_or_admin"
   on public.announcements
   for delete
   to authenticated
-  using (author_id = auth.uid());
+  using (
+    author_id = auth.uid()
+    or lower(coalesce(auth.jwt() ->> 'email', '')) = 'menachemlabin@gmail.com'
+  );
 
 do $$
 begin

@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import type { Announcement, BulletinPost, Conversation, ConversationType, Message, Session } from '../types';
-import { isBulletinAdmin } from './constants';
+import { canDeleteAnnouncement, isBulletinAdmin } from './constants';
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -669,6 +669,27 @@ export async function createAnnouncement(input: {
   }
 
   return { ok: true, data: mapAnnouncement(data) };
+}
+
+export async function deleteAnnouncement(input: {
+  announcementId: string;
+  email: string;
+  authorEmail: string;
+}): Promise<Result<true>> {
+  if (!canDeleteAnnouncement(input.email, input.authorEmail)) {
+    return { ok: false, error: 'אין הרשאה למחוק עידכון זה' };
+  }
+
+  const { error } = await supabase
+    .from('announcements')
+    .delete()
+    .eq('id', input.announcementId);
+
+  if (error) {
+    return { ok: false, error: mapError(error, 'מחיקת העידכון נכשלה') };
+  }
+
+  return { ok: true, data: true };
 }
 
 function mapBulletinPost(row: {

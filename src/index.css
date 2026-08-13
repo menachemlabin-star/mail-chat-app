@@ -480,7 +480,7 @@ button:disabled {
 
 .announcement-item {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   gap: 12px;
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
@@ -494,6 +494,25 @@ button:disabled {
   color: var(--ink-soft);
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+.announcement-date {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.2;
+}
+
+.announcement-delete {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+.announcement-delete:hover {
+  background: rgba(220, 76, 76, 0.1);
+  color: var(--danger);
 }
 
 .bulletin-media {
