@@ -5,6 +5,7 @@ import {
   createBulletinPost,
   createGroupConversation,
   createPrivateConversation,
+  deleteBulletinPost,
   ensureProfile,
   findProfileByEmail,
   insertMessage,
@@ -14,6 +15,7 @@ import {
   loadMessages,
   markConversationRead,
   deleteConversationForMe,
+  uploadBulletinFile,
   uploadChatImage,
   mapAnnouncement,
   mapBulletinPost,
@@ -270,12 +272,25 @@ export function useMailChat() {
             author_email: string;
             author_name: string;
             body: string;
+            image_url?: string | null;
+            file_url?: string | null;
+            file_name?: string | null;
+            file_type?: string | null;
             created_at: string;
           };
           setBulletinPosts((prev) => {
             if (prev.some((item) => item.id === row.id)) return prev;
             return [mapBulletinPost(row), ...prev];
           });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'bulletin_posts' },
+        (payload) => {
+          const row = payload.old as { id?: string };
+          if (!row.id) return;
+          setBulletinPosts((prev) => prev.filter((item) => item.id !== row.id));
         },
       )
       .subscribe();
@@ -638,14 +653,47 @@ export function useMailChat() {
   );
 
   const postBulletin = useCallback(
-    async (body: string) => {
+    async (input: {
+      body: string;
+      imageFile?: File | null;
+      pdfFile?: File | null;
+    }) => {
       if (!session) return { ok: false as const, error: 'לא מחובר' };
+
+      let imageUrl: string | null = null;
+      let fileUrl: string | null = null;
+      let fileName: string | null = null;
+      let fileType: string | null = null;
+
+      if (input.imageFile) {
+        const uploaded = await uploadBulletinFile({
+          userId: session.id,
+          file: input.imageFile,
+        });
+        if (!uploaded.ok) return uploaded;
+        imageUrl = uploaded.data.url;
+      }
+
+      if (input.pdfFile) {
+        const uploaded = await uploadBulletinFile({
+          userId: session.id,
+          file: input.pdfFile,
+        });
+        if (!uploaded.ok) return uploaded;
+        fileUrl = uploaded.data.url;
+        fileName = uploaded.data.name;
+        fileType = uploaded.data.type;
+      }
 
       const result = await createBulletinPost({
         userId: session.id,
         email: session.email,
         displayName: session.displayName,
-        body,
+        body: input.body,
+        imageUrl,
+        fileUrl,
+        fileName,
+        fileType,
       });
 
       if (!result.ok) return result;
@@ -654,6 +702,22 @@ export function useMailChat() {
         if (prev.some((item) => item.id === result.data.id)) return prev;
         return [result.data, ...prev];
       });
+      return { ok: true as const };
+    },
+    [session],
+  );
+
+  const removeBulletin = useCallback(
+    async (postId: string) => {
+      if (!session) return { ok: false as const, error: 'לא מחובר' };
+
+      const result = await deleteBulletinPost({
+        postId,
+        email: session.email,
+      });
+      if (!result.ok) return result;
+
+      setBulletinPosts((prev) => prev.filter((item) => item.id !== postId));
       return { ok: true as const };
     },
     [session],
@@ -693,5 +757,6 @@ export function useMailChat() {
     deleteConversation,
     postAnnouncement,
     postBulletin,
+    removeBulletin,
   };
 }

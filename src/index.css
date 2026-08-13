@@ -496,6 +496,132 @@ button:disabled {
   line-height: 1.45;
 }
 
+.bulletin-media {
+  display: block;
+  margin: 8px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  max-width: 100%;
+}
+
+.bulletin-media img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+}
+
+.bulletin-file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--teal-soft);
+  color: var(--teal-deep);
+  text-decoration: none;
+  font-weight: 650;
+  font-size: 0.88rem;
+}
+
+.bulletin-file-link:hover {
+  background: rgba(15, 118, 110, 0.18);
+}
+
+.bulletin-attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.bulletin-attach-row .btn {
+  width: auto;
+  margin: 0;
+}
+
+.bulletin-attach-preview {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.bulletin-preview-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.bulletin-preview-card img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.bulletin-preview-card .btn {
+  width: auto;
+  margin: 0;
+  justify-self: start;
+}
+
+.bulletin-manage {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.bulletin-manage h4 {
+  margin: 0 0 12px;
+  font-size: 0.98rem;
+  color: var(--teal-deep);
+}
+
+.bulletin-manage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.bulletin-manage-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.bulletin-manage-list p {
+  margin: 0 0 4px;
+  font-size: 0.9rem;
+  color: var(--ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bulletin-manage-list span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.bulletin-manage-list .btn {
+  width: auto;
+  margin: 0;
+  flex-shrink: 0;
+}
+
 .mobile-topbar,
 .mobile-drawer,
 .nav-backdrop,
@@ -1023,6 +1149,12 @@ button:disabled {
   padding: 24px;
   box-shadow: var(--shadow);
   animation: rise-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: min(90vh, 860px);
+  overflow: auto;
+}
+
+.modal:has(.bulletin-editor) {
+  width: min(560px, 100%);
 }
 
 .modal h3 {

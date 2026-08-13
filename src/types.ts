@@ -34,6 +34,17 @@ export interface Announcement {
   createdAt: number;
 }
 
-export type BulletinPost = Announcement;
+export interface BulletinPost {
+  id: string;
+  authorId: string | null;
+  authorEmail: string;
+  authorName: string;
+  body: string;
+  imageUrl: string | null;
+  fileUrl: string | null;
+  fileName: string | null;
+  fileType: string | null;
+  createdAt: number;
+}
 
 export type ActionResult = { ok: true } | { ok: false; error: string };

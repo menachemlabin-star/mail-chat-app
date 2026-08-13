@@ -677,23 +677,109 @@ function mapBulletinPost(row: {
   author_email: string;
   author_name: string;
   body: string;
+  image_url?: string | null;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
   created_at: string;
 }): BulletinPost {
-  return mapAnnouncement(row);
+  return {
+    id: row.id,
+    authorId: row.author_id,
+    authorEmail: row.author_email,
+    authorName: row.author_name,
+    body: row.body ?? '',
+    imageUrl: row.image_url ?? null,
+    fileUrl: row.file_url ?? null,
+    fileName: row.file_name ?? null,
+    fileType: row.file_type ?? null,
+    createdAt: new Date(row.created_at).getTime(),
+  };
 }
 
+const bulletinSelect =
+  'id, author_id, author_email, author_name, body, image_url, file_url, file_name, file_type, created_at';
+
 export async function loadBulletinPosts(): Promise<Result<BulletinPost[]>> {
-  const { data, error } = await supabase
+  const withFiles = await supabase
     .from('bulletin_posts')
-    .select('id, author_id, author_email, author_name, body, created_at')
+    .select(bulletinSelect)
     .order('created_at', { ascending: false })
     .limit(100);
 
-  if (error) {
-    return { ok: false, error: mapError(error, 'טעינת לוח המודעות נכשלה') };
+  if (withFiles.error) {
+    if (!/image_url|file_url|file_name|file_type/i.test(withFiles.error.message)) {
+      return { ok: false, error: mapError(withFiles.error, 'טעינת לוח המודעות נכשלה') };
+    }
+
+    const legacy = await supabase
+      .from('bulletin_posts')
+      .select('id, author_id, author_email, author_name, body, created_at')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (legacy.error) {
+      return { ok: false, error: mapError(legacy.error, 'טעינת לוח המודעות נכשלה') };
+    }
+
+    return { ok: true, data: (legacy.data ?? []).map(mapBulletinPost) };
   }
 
-  return { ok: true, data: (data ?? []).map(mapBulletinPost) };
+  return { ok: true, data: (withFiles.data ?? []).map(mapBulletinPost) };
+}
+
+export async function uploadBulletinFile(input: {
+  userId: string;
+  file: File;
+}): Promise<Result<{ url: string; name: string; type: string }>> {
+  const isImage = /^image\/(jpeg|png|gif|webp)$/i.test(input.file.type);
+  const isPdf = input.file.type === 'application/pdf';
+
+  if (!isImage && !isPdf) {
+    return { ok: false, error: 'ניתן להעלות תמונה (JPG/PNG/GIF/WEBP) או קובץ PDF בלבד' };
+  }
+  if (input.file.size > 15 * 1024 * 1024) {
+    return { ok: false, error: 'הקובץ גדול מדי. הגודל המרבי הוא 15MB' };
+  }
+
+  const ext =
+    input.file.name.split('.').pop()?.toLowerCase() ||
+    (isPdf ? 'pdf' : 'jpg');
+  const path = `${input.userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('bulletin-files')
+    .upload(path, input.file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: input.file.type,
+    });
+
+  if (uploadError) {
+    return {
+      ok: false,
+      error: mapError(
+        uploadError,
+        'העלאת הקובץ נכשלה. הריצו את supabase/bulletin-board.sql ב-Supabase.',
+      ),
+    };
+  }
+
+  const signed = await supabase.storage
+    .from('bulletin-files')
+    .createSignedUrl(path, 60 * 60 * 24 * 365);
+  if (!signed.error && signed.data?.signedUrl) {
+    return {
+      ok: true,
+      data: { url: signed.data.signedUrl, name: input.file.name, type: input.file.type },
+    };
+  }
+
+  const { data } = supabase.storage.from('bulletin-files').getPublicUrl(path);
+  return {
+    ok: true,
+    data: { url: data.publicUrl, name: input.file.name, type: input.file.type },
+  };
 }
 
 export async function createBulletinPost(input: {
@@ -701,32 +787,93 @@ export async function createBulletinPost(input: {
   email: string;
   displayName: string;
   body: string;
+  imageUrl?: string | null;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileType?: string | null;
 }): Promise<Result<BulletinPost>> {
   const body = input.body.trim();
-  if (!body) {
-    return { ok: false, error: 'נא לכתוב תוכן למודעה' };
+  const imageUrl = input.imageUrl?.trim() || null;
+  const fileUrl = input.fileUrl?.trim() || null;
+  const fileName = input.fileName?.trim() || null;
+  const fileType = input.fileType?.trim() || null;
+
+  if (!body && !imageUrl && !fileUrl) {
+    return { ok: false, error: 'נא לכתוב מודעה או להעלות תמונה / PDF' };
   }
 
   if (!isBulletinAdmin(input.email)) {
     return { ok: false, error: 'רק מנהל לוח המודעות יכול לפרסם כאן' };
   }
 
-  const { data, error } = await supabase
+  const payload = {
+    author_id: input.userId,
+    author_email: input.email.toLowerCase(),
+    author_name: input.displayName,
+    body,
+    image_url: imageUrl,
+    file_url: fileUrl,
+    file_name: fileName,
+    file_type: fileType,
+  };
+
+  const withFiles = await supabase
     .from('bulletin_posts')
-    .insert({
-      author_id: input.userId,
-      author_email: input.email.toLowerCase(),
-      author_name: input.displayName,
-      body,
-    })
-    .select('id, author_id, author_email, author_name, body, created_at')
+    .insert(payload)
+    .select(bulletinSelect)
     .single();
 
-  if (error || !data) {
-    return { ok: false, error: mapError(error, 'פרסום המודעה נכשל') };
+  if (withFiles.error) {
+    if (!/image_url|file_url|file_name|file_type/i.test(withFiles.error.message)) {
+      return { ok: false, error: mapError(withFiles.error, 'פרסום המודעה נכשל') };
+    }
+
+    if (imageUrl || fileUrl) {
+      return {
+        ok: false,
+        error: 'פרסום קבצים דורש הרצת supabase/bulletin-board.sql ב-Supabase.',
+      };
+    }
+
+    const legacy = await supabase
+      .from('bulletin_posts')
+      .insert({
+        author_id: input.userId,
+        author_email: input.email.toLowerCase(),
+        author_name: input.displayName,
+        body,
+      })
+      .select('id, author_id, author_email, author_name, body, created_at')
+      .single();
+
+    if (legacy.error || !legacy.data) {
+      return { ok: false, error: mapError(legacy.error, 'פרסום המודעה נכשל') };
+    }
+
+    return { ok: true, data: mapBulletinPost(legacy.data) };
   }
 
-  return { ok: true, data: mapBulletinPost(data) };
+  if (!withFiles.data) {
+    return { ok: false, error: 'פרסום המודעה נכשל' };
+  }
+
+  return { ok: true, data: mapBulletinPost(withFiles.data) };
+}
+
+export async function deleteBulletinPost(input: {
+  postId: string;
+  email: string;
+}): Promise<Result<true>> {
+  if (!isBulletinAdmin(input.email)) {
+    return { ok: false, error: 'רק מנהל לוח המודעות יכול למחוק מודעות' };
+  }
+
+  const { error } = await supabase.from('bulletin_posts').delete().eq('id', input.postId);
+  if (error) {
+    return { ok: false, error: mapError(error, 'מחיקת המודעה נכשלה') };
+  }
+
+  return { ok: true, data: true };
 }
 
 export { mapMessage, mapAnnouncement, mapBulletinPost };

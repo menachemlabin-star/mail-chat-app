@@ -57,6 +57,7 @@ export default function App() {
         onDeleteConversation={chat.deleteConversation}
         onPostAnnouncement={chat.postAnnouncement}
         onPostBulletin={chat.postBulletin}
+        onDeleteBulletin={chat.removeBulletin}
       />
     </div>
   );

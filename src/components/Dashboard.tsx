@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Bell,
+  FileText,
   ImagePlus,
   LogOut,
   Mail,
   Megaphone,
   Menu,
   MessageSquarePlus,
+  Pencil,
   Plus,
   Send,
   Trash2,
@@ -49,7 +51,12 @@ interface DashboardProps {
   onSend: (text: string, imageFile?: File | null) => Promise<ActionResult | void>;
   onDeleteConversation: (conversationId: string) => Promise<ActionResult>;
   onPostAnnouncement: (body: string) => Promise<ActionResult>;
-  onPostBulletin: (body: string) => Promise<ActionResult>;
+  onPostBulletin: (input: {
+    body: string;
+    imageFile?: File | null;
+    pdfFile?: File | null;
+  }) => Promise<ActionResult>;
+  onDeleteBulletin: (postId: string) => Promise<ActionResult>;
 }
 
 function messagePreview(message: Message | null) {
@@ -102,6 +109,7 @@ export function Dashboard({
   onDeleteConversation,
   onPostAnnouncement,
   onPostBulletin,
+  onDeleteBulletin,
 }: DashboardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -304,17 +312,42 @@ export function Dashboard({
       {bulletinPosts.length === 0 ? (
         <li className="empty-list">
           <Megaphone size={28} />
-          <p>{canPostBulletin ? 'אין מודעות עדיין. לחצו + כדי לפרסם.' : 'אין מודעות בלוח.'}</p>
+          <p>
+            {canPostBulletin
+              ? 'אין מודעות עדיין. לחצו על עריכה כדי לפרסם.'
+              : 'אין מודעות בלוח.'}
+          </p>
         </li>
       ) : (
         bulletinPosts.map((item) => (
-          <li key={item.id} className="announcement-item">
+          <li key={item.id} className="announcement-item bulletin-item">
             <div className="avatar sm" aria-hidden>
               {initials(item.authorName)}
             </div>
             <div style={{ minWidth: 0 }}>
               <div className="title">{item.authorName}</div>
-              <div className="announcement-body">{item.body}</div>
+              {item.body ? <div className="announcement-body">{item.body}</div> : null}
+              {item.imageUrl && (
+                <a
+                  className="bulletin-media"
+                  href={item.imageUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <img src={item.imageUrl} alt="תמונה בלוח מודעות" />
+                </a>
+              )}
+              {item.fileUrl && (
+                <a
+                  className="bulletin-file-link"
+                  href={item.fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <FileText size={16} />
+                  {item.fileName || 'קובץ PDF'}
+                </a>
+              )}
               <div className="preview">{formatTime(item.createdAt)}</div>
             </div>
           </li>
@@ -332,10 +365,10 @@ export function Dashboard({
           type="button"
           className="icon-btn primary"
           onClick={() => setModal('bulletin')}
-          aria-label="הוספת מודעה"
-          title="הוספת מודעה"
+          aria-label="עריכת לוח מודעות"
+          title="עריכת לוח מודעות"
         >
-          <Plus size={18} />
+          <Pencil size={18} />
         </button>
       )}
     </div>
@@ -864,7 +897,12 @@ export function Dashboard({
         />
       )}
       {modal === 'bulletin' && (
-        <NewBulletinModal onClose={() => setModal(null)} onSubmit={onPostBulletin} />
+        <NewBulletinModal
+          onClose={() => setModal(null)}
+          onSubmit={onPostBulletin}
+          posts={bulletinPosts}
+          onDelete={onDeleteBulletin}
+        />
       )}
     </div>
   );
