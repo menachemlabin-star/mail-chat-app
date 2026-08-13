@@ -41,7 +41,7 @@ create policy "bulletin_insert_admin"
   with check (
     auth.uid() is not null
     and author_id = auth.uid()
-    and lower(author_email) = 'menachemlabib@gmail.com'
+    and lower(author_email) = 'menachemlabin@gmail.com'
   );
 
 drop policy if exists "bulletin_update_admin" on public.bulletin_posts;
@@ -51,11 +51,11 @@ create policy "bulletin_update_admin"
   to authenticated
   using (
     author_id = auth.uid()
-    and lower(author_email) = 'menachemlabib@gmail.com'
+    and lower(author_email) = 'menachemlabin@gmail.com'
   )
   with check (
     author_id = auth.uid()
-    and lower(author_email) = 'menachemlabib@gmail.com'
+    and lower(author_email) = 'menachemlabin@gmail.com'
   );
 
 drop policy if exists "bulletin_delete_admin" on public.bulletin_posts;
@@ -65,7 +65,7 @@ create policy "bulletin_delete_admin"
   to authenticated
   using (
     author_id = auth.uid()
-    and lower(author_email) = 'menachemlabib@gmail.com'
+    and lower(author_email) = 'menachemlabin@gmail.com'
   );
 
 -- Storage for bulletin images + PDFs (admin upload folder = auth.uid())
