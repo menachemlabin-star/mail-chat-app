@@ -40,6 +40,7 @@ export default function App() {
         setTab={chat.setTab}
         conversations={chat.filteredConversations}
         announcements={chat.announcements}
+        bulletinPosts={chat.bulletinPosts}
         unreadTotal={chat.unreadTotal}
         activeId={chat.activeId}
         setActiveId={chat.setActiveId}
@@ -55,6 +56,7 @@ export default function App() {
         onSend={chat.sendMessage}
         onDeleteConversation={chat.deleteConversation}
         onPostAnnouncement={chat.postAnnouncement}
+        onPostBulletin={chat.postBulletin}
       />
     </div>
   );

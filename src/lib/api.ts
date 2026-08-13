@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
-import type { Announcement, Conversation, ConversationType, Message, Session } from '../types';
+import type { Announcement, BulletinPost, Conversation, ConversationType, Message, Session } from '../types';
+import { isBulletinAdmin } from './constants';
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -18,13 +19,20 @@ function isMissingRpc(error: { message?: string } | null) {
 }
 
 function isMissingAnnouncementsTable(error: { message?: string } | null) {
-  return /announcements|schema cache/i.test(error?.message ?? '');
+  return /public\.announcements|'announcements'/i.test(error?.message ?? '');
+}
+
+function isMissingBulletinTable(error: { message?: string } | null) {
+  return /public\.bulletin_posts|'bulletin_posts'/i.test(error?.message ?? '');
 }
 
 function mapError(error: { message?: string } | null, fallback: string) {
   const message = error?.message ?? '';
   if (isMissingAnnouncementsTable(error)) {
     return 'טבלת העידכונים לא קיימת ב-Supabase. הריצו את הקובץ supabase/announcements.sql ב-SQL Editor ואז רעננו את הדף.';
+  }
+  if (isMissingBulletinTable(error)) {
+    return 'טבלת לוח המודעות לא קיימת ב-Supabase. הריצו את הקובץ supabase/bulletin-board.sql ב-SQL Editor ואז רעננו את הדף.';
   }
   if (/row-level security|violates row-level/i.test(message)) {
     return 'הרשאות מסד הנתונים חוסמות את הפעולה. הריצו מחדש את schema.sql ב-Supabase → SQL Editor.';
@@ -663,4 +671,62 @@ export async function createAnnouncement(input: {
   return { ok: true, data: mapAnnouncement(data) };
 }
 
-export { mapMessage, mapAnnouncement };
+function mapBulletinPost(row: {
+  id: string;
+  author_id: string | null;
+  author_email: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+}): BulletinPost {
+  return mapAnnouncement(row);
+}
+
+export async function loadBulletinPosts(): Promise<Result<BulletinPost[]>> {
+  const { data, error } = await supabase
+    .from('bulletin_posts')
+    .select('id, author_id, author_email, author_name, body, created_at')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    return { ok: false, error: mapError(error, 'טעינת לוח המודעות נכשלה') };
+  }
+
+  return { ok: true, data: (data ?? []).map(mapBulletinPost) };
+}
+
+export async function createBulletinPost(input: {
+  userId: string;
+  email: string;
+  displayName: string;
+  body: string;
+}): Promise<Result<BulletinPost>> {
+  const body = input.body.trim();
+  if (!body) {
+    return { ok: false, error: 'נא לכתוב תוכן למודעה' };
+  }
+
+  if (!isBulletinAdmin(input.email)) {
+    return { ok: false, error: 'רק מנהל לוח המודעות יכול לפרסם כאן' };
+  }
+
+  const { data, error } = await supabase
+    .from('bulletin_posts')
+    .insert({
+      author_id: input.userId,
+      author_email: input.email.toLowerCase(),
+      author_name: input.displayName,
+      body,
+    })
+    .select('id, author_id, author_email, author_name, body, created_at')
+    .single();
+
+  if (error || !data) {
+    return { ok: false, error: mapError(error, 'פרסום המודעה נכשל') };
+  }
+
+  return { ok: true, data: mapBulletinPost(data) };
+}
+
+export { mapMessage, mapAnnouncement, mapBulletinPost };

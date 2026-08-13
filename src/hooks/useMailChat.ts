@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Announcement, Conversation, ConversationType, Message, Session } from '../types';
+import type { Announcement, BulletinPost, Conversation, ConversationType, Message, Session } from '../types';
 import {
   createAnnouncement,
+  createBulletinPost,
   createGroupConversation,
   createPrivateConversation,
   ensureProfile,
   findProfileByEmail,
   insertMessage,
   loadAnnouncements,
+  loadBulletinPosts,
   loadConversationsForUser,
   loadMessages,
   markConversationRead,
   deleteConversationForMe,
   uploadChatImage,
   mapAnnouncement,
+  mapBulletinPost,
   mapMessage,
 } from '../lib/api';
 import { supabase, supabaseUrl } from '../lib/supabase';
@@ -62,6 +65,7 @@ export function useMailChat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [bulletinPosts, setBulletinPosts] = useState<BulletinPost[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tab, setTab] = useState<ConversationType>('private');
   const [onlineEmails, setOnlineEmails] = useState<Set<string>>(new Set());
@@ -72,9 +76,10 @@ export function useMailChat() {
     setDataLoading(true);
     setError(null);
 
-    const [convResult, announcementsResult] = await Promise.all([
+    const [convResult, announcementsResult, bulletinResult] = await Promise.all([
       loadConversationsForUser(email),
       loadAnnouncements(),
+      loadBulletinPosts(),
     ]);
 
     if (!convResult.ok) {
@@ -89,6 +94,12 @@ export function useMailChat() {
       setAnnouncements(announcementsResult.data);
     } else {
       setAnnouncements([]);
+    }
+
+    if (bulletinResult.ok) {
+      setBulletinPosts(bulletinResult.data);
+    } else {
+      setBulletinPosts([]);
     }
 
     const msgResult = await loadMessages(convResult.data.map((c) => c.id));
@@ -146,6 +157,7 @@ export function useMailChat() {
           setConversations([]);
           setMessages([]);
           setAnnouncements([]);
+          setBulletinPosts([]);
           setActiveId(null);
           setAuthLoading(false);
           return;
@@ -245,6 +257,24 @@ export function useMailChat() {
           setAnnouncements((prev) => {
             if (prev.some((item) => item.id === row.id)) return prev;
             return [mapAnnouncement(row), ...prev];
+          });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'bulletin_posts' },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            author_id: string | null;
+            author_email: string;
+            author_name: string;
+            body: string;
+            created_at: string;
+          };
+          setBulletinPosts((prev) => {
+            if (prev.some((item) => item.id === row.id)) return prev;
+            return [mapBulletinPost(row), ...prev];
           });
         },
       )
@@ -369,6 +399,7 @@ export function useMailChat() {
     setConversations([]);
     setMessages([]);
     setAnnouncements([]);
+    setBulletinPosts([]);
     setActiveId(null);
   }, []);
 
@@ -606,6 +637,28 @@ export function useMailChat() {
     [session],
   );
 
+  const postBulletin = useCallback(
+    async (body: string) => {
+      if (!session) return { ok: false as const, error: 'לא מחובר' };
+
+      const result = await createBulletinPost({
+        userId: session.id,
+        email: session.email,
+        displayName: session.displayName,
+        body,
+      });
+
+      if (!result.ok) return result;
+
+      setBulletinPosts((prev) => {
+        if (prev.some((item) => item.id === result.data.id)) return prev;
+        return [result.data, ...prev];
+      });
+      return { ok: true as const };
+    },
+    [session],
+  );
+
   const peerEmail = useMemo(() => {
     if (!session || !activeConversation || activeConversation.type !== 'private') return null;
     return activeConversation.members.find((m) => m !== session.email) ?? null;
@@ -623,6 +676,7 @@ export function useMailChat() {
     setActiveId,
     filteredConversations,
     announcements,
+    bulletinPosts,
     unreadTotal,
     activeConversation,
     activeMessages,
@@ -638,5 +692,6 @@ export function useMailChat() {
     sendMessage,
     deleteConversation,
     postAnnouncement,
+    postBulletin,
   };
 }

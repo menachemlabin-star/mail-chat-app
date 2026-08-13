@@ -34,4 +34,6 @@ export interface Announcement {
   createdAt: number;
 }
 
+export type BulletinPost = Announcement;
+
 export type ActionResult = { ok: true } | { ok: false; error: string };

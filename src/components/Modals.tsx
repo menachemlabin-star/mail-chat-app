@@ -328,3 +328,58 @@ export function NewAnnouncementModal({ onClose, onSubmit }: NewAnnouncementModal
     </ModalShell>
   );
 }
+
+interface NewBulletinModalProps {
+  onClose: () => void;
+  onSubmit: (body: string) => Promise<ActionResult>;
+}
+
+export function NewBulletinModal({ onClose, onSubmit }: NewBulletinModalProps) {
+  const [body, setBody] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const handle = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const result = await onSubmit(body);
+      if (!result.ok) setError(result.error);
+      else onClose();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ModalShell
+      title="מודעה חדשה"
+      subtitle="המודעה תופיע בלוח המודעות אצל כל המשתמשים."
+      onClose={onClose}
+    >
+      <form onSubmit={handle}>
+        <div className="field">
+          <label htmlFor="bulletin-body">תוכן המודעה</label>
+          <textarea
+            id="bulletin-body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={4}
+            autoFocus
+            required
+          />
+        </div>
+        {error && <div className="auth-error">{error}</div>}
+        <div className="modal-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose} disabled={busy}>
+            ביטול
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={busy || !body.trim()}>
+            {busy ? 'מפרסם…' : 'פרסום מודעה'}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}

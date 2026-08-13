@@ -421,7 +421,7 @@ button:disabled {
 .dashboard {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(260px, 28%) 1fr minmax(220px, 22%);
+  grid-template-columns: minmax(220px, 22%) 1fr minmax(170px, 15%) minmax(170px, 15%);
   gap: 16px;
   padding: 16px;
   animation: fade-in 0.45s ease;
@@ -430,7 +430,8 @@ button:disabled {
 .panel-card,
 .sidebar,
 .chat-panel,
-.updates-panel {
+.updates-panel,
+.bulletin-panel {
   background: var(--panel);
   border: 1px solid rgba(255, 255, 255, 0.85);
   border-radius: 24px;
@@ -440,6 +441,7 @@ button:disabled {
 }
 
 .updates-panel,
+.bulletin-panel,
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -483,6 +485,7 @@ button:disabled {
 .mobile-drawer,
 .nav-backdrop,
 .mobile-updates,
+.mobile-bulletin,
 .mobile-section-title,
 .mobile-back {
   display: none;
@@ -1133,6 +1136,10 @@ button:disabled {
     display: none !important;
   }
 
+  .bulletin-panel {
+    display: none !important;
+  }
+
   .mobile-topbar {
     display: flex;
     align-items: center;
@@ -1310,6 +1317,7 @@ button:disabled {
   }
 
   .mobile-updates,
+  .mobile-bulletin,
   .sidebar,
   .chat-panel {
     display: none;
@@ -1514,6 +1522,11 @@ button:disabled {
     flex-direction: column;
   }
 
+  .dashboard.mobile-pane-bulletin .mobile-bulletin {
+    display: flex;
+    flex-direction: column;
+  }
+
   .dashboard.mobile-pane-chats .sidebar {
     display: flex;
     flex-direction: column;
@@ -1527,6 +1540,7 @@ button:disabled {
 
 @media (min-width: 901px) {
   .mobile-updates,
+  .mobile-bulletin,
   .mobile-chat-menu {
     display: none !important;
   }

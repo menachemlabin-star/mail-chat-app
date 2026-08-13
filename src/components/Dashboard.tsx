@@ -5,6 +5,7 @@ import {
   ImagePlus,
   LogOut,
   Mail,
+  Megaphone,
   Menu,
   MessageSquarePlus,
   Plus,
@@ -14,16 +15,17 @@ import {
   UsersRound,
   X,
 } from 'lucide-react';
-import type { ActionResult, Announcement, Conversation, ConversationType, Message, Session } from '../types';
+import type { ActionResult, Announcement, BulletinPost, Conversation, ConversationType, Message, Session } from '../types';
+import { isBulletinAdmin } from '../lib/constants';
 import { ChatImage } from './ChatImage';
-import { NewAnnouncementModal, NewChatModal, NewGroupModal } from './Modals';
+import { NewAnnouncementModal, NewBulletinModal, NewChatModal, NewGroupModal } from './Modals';
 
 interface ConversationRow extends Conversation {
   lastMessage: Message | null;
   unreadCount: number;
 }
 
-type MobilePane = 'updates' | 'chats' | 'chat';
+type MobilePane = 'updates' | 'bulletin' | 'chats' | 'chat';
 
 interface DashboardProps {
   session: Session;
@@ -31,6 +33,7 @@ interface DashboardProps {
   setTab: (tab: ConversationType) => void;
   conversations: ConversationRow[];
   announcements: Announcement[];
+  bulletinPosts: BulletinPost[];
   unreadTotal: number;
   activeId: string | null;
   setActiveId: (id: string | null) => void;
@@ -46,6 +49,7 @@ interface DashboardProps {
   onSend: (text: string, imageFile?: File | null) => Promise<ActionResult | void>;
   onDeleteConversation: (conversationId: string) => Promise<ActionResult>;
   onPostAnnouncement: (body: string) => Promise<ActionResult>;
+  onPostBulletin: (body: string) => Promise<ActionResult>;
 }
 
 function messagePreview(message: Message | null) {
@@ -81,6 +85,7 @@ export function Dashboard({
   setTab,
   conversations,
   announcements,
+  bulletinPosts,
   unreadTotal,
   activeId,
   setActiveId,
@@ -96,11 +101,12 @@ export function Dashboard({
   onSend,
   onDeleteConversation,
   onPostAnnouncement,
+  onPostBulletin,
 }: DashboardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [mobilePane, setMobilePane] = useState<MobilePane>('chats');
-  const [modal, setModal] = useState<'private' | 'group' | 'announcement' | null>(null);
+  const [modal, setModal] = useState<'private' | 'group' | 'announcement' | 'bulletin' | null>(null);
   const [draft, setDraft] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     conversationId: string;
@@ -251,6 +257,7 @@ export function Dashboard({
   };
 
   const peerOnline = peerEmail ? onlineEmails.has(peerEmail) : false;
+  const canPostBulletin = isBulletinAdmin(session.email);
 
   const renderUpdatesList = () => (
     <ul className="conversation-list updates-list">
@@ -289,6 +296,48 @@ export function Dashboard({
       >
         <Plus size={18} />
       </button>
+    </div>
+  );
+
+  const renderBulletinList = () => (
+    <ul className="conversation-list updates-list">
+      {bulletinPosts.length === 0 ? (
+        <li className="empty-list">
+          <Megaphone size={28} />
+          <p>{canPostBulletin ? 'אין מודעות עדיין. לחצו + כדי לפרסם.' : 'אין מודעות בלוח.'}</p>
+        </li>
+      ) : (
+        bulletinPosts.map((item) => (
+          <li key={item.id} className="announcement-item">
+            <div className="avatar sm" aria-hidden>
+              {initials(item.authorName)}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="title">{item.authorName}</div>
+              <div className="announcement-body">{item.body}</div>
+              <div className="preview">{formatTime(item.createdAt)}</div>
+            </div>
+          </li>
+        ))
+      )}
+    </ul>
+  );
+
+  const renderBulletinHeading = () => (
+    <div className="panel-heading">
+      <Megaphone size={18} />
+      <h2>לוח מודעות</h2>
+      {canPostBulletin && (
+        <button
+          type="button"
+          className="icon-btn primary"
+          onClick={() => setModal('bulletin')}
+          aria-label="הוספת מודעה"
+          title="הוספת מודעה"
+        >
+          <Plus size={18} />
+        </button>
+      )}
     </div>
   );
 
@@ -384,6 +433,17 @@ export function Dashboard({
           >
             <Bell size={18} />
             עידכונים
+          </button>
+          <button
+            type="button"
+            className={mobilePane === 'bulletin' ? 'active' : ''}
+            onClick={() => {
+              setMobilePane('bulletin');
+              setNavOpen(false);
+            }}
+          >
+            <Megaphone size={18} />
+            לוח מודעות
           </button>
           <button
             type="button"
@@ -753,9 +813,19 @@ export function Dashboard({
         {renderUpdatesList()}
       </aside>
 
+      <aside className="bulletin-panel panel-card">
+        {renderBulletinHeading()}
+        {renderBulletinList()}
+      </aside>
+
       <aside className="mobile-updates panel-card">
         {renderUpdatesHeading()}
         {renderUpdatesList()}
+      </aside>
+
+      <aside className="mobile-bulletin panel-card">
+        {renderBulletinHeading()}
+        {renderBulletinList()}
       </aside>
 
       {lightbox && (
@@ -791,6 +861,9 @@ export function Dashboard({
           onClose={() => setModal(null)}
           onSubmit={onPostAnnouncement}
         />
+      )}
+      {modal === 'bulletin' && (
+        <NewBulletinModal onClose={() => setModal(null)} onSubmit={onPostBulletin} />
       )}
     </div>
   );
