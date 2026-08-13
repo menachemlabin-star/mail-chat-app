@@ -17,8 +17,15 @@ function isMissingRpc(error: { message?: string } | null) {
   );
 }
 
+function isMissingAnnouncementsTable(error: { message?: string } | null) {
+  return /announcements|schema cache/i.test(error?.message ?? '');
+}
+
 function mapError(error: { message?: string } | null, fallback: string) {
   const message = error?.message ?? '';
+  if (isMissingAnnouncementsTable(error)) {
+    return 'טבלת העידכונים לא קיימת ב-Supabase. הריצו את הקובץ supabase/announcements.sql ב-SQL Editor ואז רעננו את הדף.';
+  }
   if (/row-level security|violates row-level/i.test(message)) {
     return 'הרשאות מסד הנתונים חוסמות את הפעולה. הריצו מחדש את schema.sql ב-Supabase → SQL Editor.';
   }
