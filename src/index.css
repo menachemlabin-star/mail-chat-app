@@ -430,9 +430,9 @@ button:disabled {
 .side-stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .panel-card,
@@ -450,7 +450,9 @@ button:disabled {
 
 .side-stack .bulletin-panel,
 .side-stack .updates-panel {
-  flex: 1;
+  flex: 1 1 0;
+  min-height: 140px;
+  box-shadow: 0 14px 36px rgba(11, 31, 28, 0.12);
 }
 
 .updates-panel,
